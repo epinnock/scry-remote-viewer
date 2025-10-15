@@ -1,0 +1,57 @@
+name = "scry-cdn-service"
+main = "cloudflare/worker.ts"
+compatibility_date = "2024-01-15"
+node_compat = true
+
+# R2 Bucket Binding
+[[r2_buckets]]
+binding = "STATIC_SITES"
+bucket_name = "scry-static-sites"
+preview_bucket_name = "scry-static-sites-preview"
+
+# KV Namespace Binding (for caching)
+[[kv_namespaces]]
+binding = "CDN_CACHE"
+id = "" # Add your KV namespace ID here
+preview_id = "" # Add your preview KV namespace ID here
+
+# Production environment
+[env.production]
+name = "scry-cdn-service"
+vars = { PLATFORM = "cloudflare", ENVIRONMENT = "production" }
+routes = [
+  { pattern = "view-*.mysite.com/*", zone_name = "mysite.com" }
+]
+
+[[env.production.r2_buckets]]
+binding = "STATIC_SITES"
+bucket_name = "scry-static-sites"
+
+[[env.production.kv_namespaces]]
+binding = "CDN_CACHE"
+id = "" # Production KV namespace ID
+
+# Development/Staging environment
+[env.development]
+name = "scry-cdn-service-dev"
+vars = { PLATFORM = "cloudflare", ENVIRONMENT = "development" }
+
+[[env.development.r2_buckets]]
+binding = "STATIC_SITES"
+bucket_name = "scry-static-sites-preview"
+
+[[env.development.kv_namespaces]]
+binding = "CDN_CACHE"
+preview_id = "" # Development KV namespace ID
+
+# Build configuration
+[build]
+command = "npm run build:cloudflare"
+
+[build.upload]
+format = "modules"
+main = "./dist/cloudflare/worker.js"
+
+# Secrets (set with: wrangler secret put <KEY>)
+# - FIREBASE_SERVICE_ACCOUNT
+# - FIREBASE_API_KEY

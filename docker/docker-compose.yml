@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  cdn:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: scry-cdn-service
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - PLATFORM=docker
+      - STORAGE_TYPE=filesystem
+      - STORAGE_PATH=/data/static-sites
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_SERVICE_ACCOUNT=${FIREBASE_SERVICE_ACCOUNT}
+      - CACHE_CONTROL=public, max-age=31536000, immutable
+      - ALLOWED_ORIGINS=*
+    volumes:
+      - cdn-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: Add Redis for caching (if using Redis cache adapter)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: scry-cdn-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+volumes:
+  cdn-data:
+    driver: local
+  # redis-data:
+  #   driver: local

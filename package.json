@@ -1,0 +1,54 @@
+{
+  "name": "scry-cdn-service",
+  "version": "1.0.0",
+  "description": "Multi-platform CDN service for static site hosting with R2/S3 support",
+  "type": "module",
+  "scripts": {
+    "dev:cloudflare": "wrangler dev",
+    "dev:docker": "tsx watch docker/server.ts",
+    "build": "tsup",
+    "build:cloudflare": "tsup --entry.worker cloudflare/worker.ts --format esm --platform neutral",
+    "build:docker": "tsup --entry.server docker/server.ts --format esm --platform node",
+    "deploy:cloudflare": "wrangler deploy --env production",
+    "deploy:cloudflare:dev": "wrangler deploy --env development",
+    "docker:build": "docker build -f docker/Dockerfile -t scry-cdn-service:latest .",
+    "docker:run": "docker-compose -f docker/docker-compose.yml up",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "format": "prettier --write \"src/**/*.ts\""
+  },
+  "keywords": [
+    "cdn",
+    "cloudflare",
+    "workers",
+    "r2",
+    "s3",
+    "hono",
+    "static-hosting"
+  ],
+  "author": "Scry Team",
+  "license": "MIT",
+  "dependencies": {
+    "hono": "^4.6.10",
+    "firebase-admin": "^12.6.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "@hono/node-server": "^1.13.7",
+    "@types/node": "^22.9.3",
+    "wrangler": "^3.86.1",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.6",
+    "eslint": "^9.15.0",
+    "prettier": "^3.3.3",
+    "@aws-sdk/client-s3": "^3.686.0",
+    "redis": "^4.7.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
