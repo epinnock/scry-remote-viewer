@@ -1,12 +1,12 @@
 # Scry CDN Service
 
-A production-ready, multi-platform CDN service built with [Hono](https://hono.dev/) for serving static sites from R2/S3/Filesystem storage with subdomain-based routing.
+A production-ready, multi-platform CDN service built with [Hono](https://hono.dev/) for serving static sites from R2/Filesystem storage with subdomain-based routing.
 
 ## Features
 
 ✅ **Multi-Platform Support**
 - Cloudflare Workers with R2 storage
-- Docker/Node.js with S3 or Filesystem storage
+- Docker/Node.js with R2 or Filesystem storage
 - Same codebase for both platforms
 
 ✅ **CDN Capabilities**
@@ -18,8 +18,7 @@ A production-ready, multi-platform CDN service built with [Hono](https://hono.de
 - Edge optimization
 
 ✅ **Storage Adapters**
-- R2 (Cloudflare)
-- S3 (AWS) - Ready for implementation
+- R2 (Cloudflare Workers and Docker)
 - Filesystem (Docker/Local)
 
 ✅ **Developer Experience**
@@ -155,14 +154,14 @@ FIREBASE_PROJECT_ID=your-project-id
 FIREBASE_SERVICE_ACCOUNT={}  # JSON service account
 
 # Storage (Docker only)
-STORAGE_TYPE=filesystem      # filesystem | s3
+STORAGE_TYPE=filesystem      # filesystem | r2
 STORAGE_PATH=/data/static-sites
 
-# AWS S3 (if using S3)
-AWS_S3_BUCKET=bucket-name
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=key
-AWS_SECRET_ACCESS_KEY=secret
+# R2 (if using R2 with Docker)
+R2_BUCKET=bucket-name
+R2_ACCOUNT_ID=your-cloudflare-account-id
+R2_ACCESS_KEY_ID=key
+R2_SECRET_ACCESS_KEY=secret
 
 # CDN
 CACHE_CONTROL=public, max-age=31536000, immutable
@@ -249,8 +248,15 @@ Files stored as:
   │   └── assets/
 ```
 
-### S3 (AWS)
-Coming soon. Configuration ready in factory.
+### R2 (Docker)
+When using R2 with Docker (instead of Cloudflare Workers), configure with R2 API credentials:
+```typescript
+STORAGE_TYPE=r2
+R2_BUCKET=your-bucket-name
+R2_ACCOUNT_ID=your-cloudflare-account-id
+R2_ACCESS_KEY_ID=your-access-key
+R2_SECRET_ACCESS_KEY=your-secret-key
+```
 
 ## Testing
 

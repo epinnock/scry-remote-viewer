@@ -11,13 +11,13 @@ export interface Env {
   FIREBASE_SERVICE_ACCOUNT?: string;
   FIREBASE_API_KEY?: string;
 
-  // Docker/AWS specific
-  STORAGE_TYPE?: 'r2' | 's3' | 'filesystem';
+  // Docker/R2 specific
+  STORAGE_TYPE?: 'r2' | 'filesystem';
   STORAGE_PATH?: string;
-  AWS_S3_BUCKET?: string;
-  AWS_REGION?: string;
-  AWS_ACCESS_KEY_ID?: string;
-  AWS_SECRET_ACCESS_KEY?: string;
+  R2_BUCKET?: string;
+  R2_ACCOUNT_ID?: string;
+  R2_ACCESS_KEY_ID?: string;
+  R2_SECRET_ACCESS_KEY?: string;
 
   // Cache
   REDIS_URL?: string;
@@ -44,5 +44,5 @@ export interface CloudflareEnv extends Env {
 
 export interface DockerEnv extends Env {
   PLATFORM: 'docker';
-  STORAGE_TYPE: 's3' | 'filesystem';
+  STORAGE_TYPE: 'r2' | 'filesystem';
 }

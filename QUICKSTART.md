@@ -92,12 +92,12 @@ docker push your-registry/scry-cdn-service:latest
    STORAGE_TYPE=filesystem
    STORAGE_PATH=/data/static-sites
    
-   # OR for S3
-   STORAGE_TYPE=s3
-   AWS_S3_BUCKET=your-bucket
-   AWS_REGION=us-east-1
-   AWS_ACCESS_KEY_ID=xxx
-   AWS_SECRET_ACCESS_KEY=xxx
+   # OR for R2
+   STORAGE_TYPE=r2
+   R2_BUCKET=your-bucket
+   R2_ACCOUNT_ID=your-cloudflare-account-id
+   R2_ACCESS_KEY_ID=xxx
+   R2_SECRET_ACCESS_KEY=xxx
    ```
 
 2. **Volume Setup:**
@@ -248,7 +248,7 @@ watch -n 5 'curl -s http://localhost:3000/health | jq'
 
 - Use `view-*` subdomain pattern for easy identification
 - Set long cache TTLs for immutable content
-- Monitor R2/S3 costs with usage dashboards
+- Monitor R2 costs with Cloudflare usage dashboards
 - Test locally before deploying to production
 - Keep secrets in environment variables, never in code
 
