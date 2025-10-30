@@ -1,9 +1,8 @@
 import type { StorageAdapter } from './interface';
 import { R2StorageAdapter } from './r2';
-import { FilesystemStorageAdapter } from './filesystem';
 import type { Env } from '@/types/env';
 
-export function createStorageAdapter(env: Env): StorageAdapter {
+export async function createStorageAdapter(env: Env): Promise<StorageAdapter> {
   // Cloudflare Workers environment (R2)
   if (env.STATIC_SITES) {
     return new R2StorageAdapter(env.STATIC_SITES);
@@ -14,7 +13,14 @@ export function createStorageAdapter(env: Env): StorageAdapter {
 
   if (storageType === 'filesystem') {
     const storagePath = env.STORAGE_PATH || '/data/static-sites';
-    return new FilesystemStorageAdapter(storagePath);
+    try {
+      // Use computed import path to prevent bundler from including this in Cloudflare builds
+      const modulePath = './file' + 'system';
+      const { FilesystemStorageAdapter } = await import(/* @vite-ignore */ modulePath);
+      return new FilesystemStorageAdapter(storagePath);
+    } catch (error) {
+      throw new Error('Filesystem storage is not available in this environment');
+    }
   }
 
   if (storageType === 'r2') {

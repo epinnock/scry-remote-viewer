@@ -1,7 +1,8 @@
 name = "scry-cdn-service"
-main = "cloudflare/worker.ts"
+main = "worker.ts"
 compatibility_date = "2024-01-15"
-node_compat = true
+compatibility_flags = ["nodejs_compat"]
+account_id = "f54b9c10de9d140756dbf449aa124f1e"
 
 # R2 Bucket Binding
 [[r2_buckets]]
@@ -10,17 +11,18 @@ bucket_name = "scry-static-sites"
 preview_bucket_name = "scry-static-sites-preview"
 
 # KV Namespace Binding (for caching)
-[[kv_namespaces]]
-binding = "CDN_CACHE"
-id = "" # Add your KV namespace ID here
-preview_id = "" # Add your preview KV namespace ID here
+# Commented out for local testing - wrangler dev will use local KV automatically
+# [[kv_namespaces]]
+# binding = "CDN_CACHE"
+# id = "" # Add your KV namespace ID here
+# preview_id = "" # Add your preview KV namespace ID here
 
 # Production environment
 [env.production]
 name = "scry-cdn-service"
 vars = { PLATFORM = "cloudflare", ENVIRONMENT = "production" }
 routes = [
-  { pattern = "view-*.mysite.com/*", zone_name = "mysite.com" }
+  { pattern = "*.scrymore.com/*", zone_name = "scrymore.com" }
 ]
 
 [[env.production.r2_buckets]]
@@ -29,7 +31,7 @@ bucket_name = "scry-static-sites"
 
 [[env.production.kv_namespaces]]
 binding = "CDN_CACHE"
-id = "" # Production KV namespace ID
+id = "8be50ecb14a4424fa2f8a61d35e1e827"
 
 # Development/Staging environment
 [env.development]
@@ -42,15 +44,16 @@ bucket_name = "scry-static-sites-preview"
 
 [[env.development.kv_namespaces]]
 binding = "CDN_CACHE"
-preview_id = "" # Development KV namespace ID
+preview_id = "a67fa5bbfdaf462394e802bb08ca9247"
 
 # Build configuration
-[build]
-command = "npm run build:cloudflare"
-
-[build.upload]
-format = "modules"
-main = "./dist/cloudflare/worker.js"
+# Removed conflicting build.upload section - main field above is sufficient
+# [build]
+# command = "npm run build:cloudflare"
+#
+# [build.upload]
+# format = "modules"
+# main = "./dist/cloudflare/worker.js"
 
 # Secrets (set with: wrangler secret put <KEY>)
 # - FIREBASE_SERVICE_ACCOUNT

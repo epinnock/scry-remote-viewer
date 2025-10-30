@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { compress } from 'hono/compress';
 import { staticRoutes } from './routes/static';
+import { zipStaticRoutes } from './routes/zip-static';
 import { healthRoutes } from './routes/health';
 import type { Env } from './types/env';
 
@@ -22,13 +23,17 @@ export function createApp() {
     maxAge: 86400,
   }));
 
-  app.use('*', compress());
+  // Temporarily disabled for testing
+  // app.use('*', compress());
 
   // Health check routes (no auth required)
   app.route('/health', healthRoutes);
 
-  // Static file serving (main functionality)
-  app.route('/', staticRoutes);
+  // ZIP-based static file serving (primary)
+  app.route('/', zipStaticRoutes);
+
+  // Fallback to extracted file serving (for compatibility)
+  // app.route('/', staticRoutes);
 
   // 404 handler
   app.notFound((c) => {

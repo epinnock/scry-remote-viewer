@@ -13,5 +13,6 @@ export default defineConfig({
   minify: false,
   target: 'es2022',
   outDir: 'dist',
-  external: ['hono', '@hono/node-server'],
+  external: ['hono', '@hono/node-server', 'fs', 'path'],
+  noExternal: ['unzipit', 'pako'],
 });

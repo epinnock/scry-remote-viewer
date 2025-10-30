@@ -34,6 +34,11 @@ export interface Env {
   CACHE_CONTROL?: string;
   BASE_DOMAIN?: string;
   SUBDOMAIN_PATTERN?: string;
+
+  // ZIP Extraction Configuration
+  ZIP_EXTRACTION_ENABLED?: string;
+  ZIP_CACHE_TTL?: string;
+  ZIP_MAX_FILE_SIZE?: string;
 }
 
 export interface CloudflareEnv extends Env {

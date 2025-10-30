@@ -1,49 +1,51 @@
 # Scry CDN Service
 
-A production-ready, multi-platform CDN service built with [Hono](https://hono.dev/) for serving static sites from R2/Filesystem storage with subdomain-based routing.
+A production-ready CDN service built with [Hono](https://hono.dev/) for serving static Storybook builds and other static sites directly from Cloudflare R2 (or filesystem storage) using subdomain-based routing and partial ZIP extraction.
 
 ## Features
 
+✅ **Partial ZIP Extraction**
+- Fetch only required byte ranges from `{uuid}.zip`
+- Cache central directory metadata in Cloudflare KV (24 hr TTL)
+- Supports stored and deflate-compressed entries via `pako`
+
 ✅ **Multi-Platform Support**
 - Cloudflare Workers with R2 storage
-- Docker/Node.js with R2 or Filesystem storage
-- Same codebase for both platforms
+- Docker/Node.js with R2 or filesystem storage
+- Shared TypeScript codebase across platforms
 
 ✅ **CDN Capabilities**
-- Subdomain-based routing (`view-{uuid}.domain.com`)
-- Automatic MIME type detection
-- Response compression
-- CORS support
-- Custom cache headers
-- Edge optimization
-
-✅ **Storage Adapters**
-- R2 (Cloudflare Workers and Docker)
-- Filesystem (Docker/Local)
+- Subdomain routing (`view-{uuid}.domain.com`)
+- SPA fallbacks with smart path resolution
+- Automatic MIME type detection and cache headers
+- CORS support and custom cache policies
+- Edge-optimized responses
 
 ✅ **Developer Experience**
 - TypeScript throughout
-- Hot reload in development
-- Easy testing
-- Environment parity
+- Dedicated ZIP utilities and services
+- Comprehensive Vitest unit suite
+- Hot reload for local development
 
 ## Architecture
 
 ```
 scry-cdn-service/
-├── src/                    # Core application code
-│   ├── adapters/          # Platform abstractions
-│   │   └── storage/       # Storage implementations
-│   ├── routes/            # Route handlers
-│   ├── utils/             # Utilities
-│   └── types/             # TypeScript types
-├── cloudflare/            # Cloudflare Workers specific
-│   ├── worker.ts          # Worker entry point
-│   └── wrangler.toml      # Worker configuration
-├── docker/                # Docker specific
-│   ├── server.ts          # Node.js server
-│   ├── Dockerfile         # Container definition
-│   └── docker-compose.yml # Local development
+├── src/
+│   ├── adapters/
+│   │   ├── storage/              # R2 / filesystem backends
+│   │   └── zip/                  # R2 range reader for unzipit
+│   ├── services/
+│   │   └── zip/                  # Central directory + extraction logic
+│   ├── routes/                   # Route handlers (zip-static, health, etc.)
+│   ├── utils/                    # Shared helpers (zip-utils, mime-types)
+│   └── types/                    # Shared TypeScript types
+├── docs/                         # Architecture & implementation docs
+│   ├── PARTIAL_ZIP_ARCHITECTURE.md
+│   ├── IMPLEMENTATION_PLAN.md
+│   └── IMPLEMENTATION_SUMMARY.md
+├── cloudflare/                   # Cloudflare Worker entrypoint + config
+├── docker/                       # Node server & local docker assets
 └── package.json
 ```
 
@@ -163,6 +165,11 @@ R2_ACCOUNT_ID=your-cloudflare-account-id
 R2_ACCESS_KEY_ID=key
 R2_SECRET_ACCESS_KEY=secret
 
+# ZIP extraction
+ZIP_EXTRACTION_ENABLED=true
+ZIP_CACHE_TTL=86400
+ZIP_MAX_FILE_SIZE=10485760
+
 # CDN
 CACHE_CONTROL=public, max-age=31536000, immutable
 ALLOWED_ORIGINS=*
@@ -189,21 +196,24 @@ routes = [
 
 ### Upload Static Site
 
-Files should be uploaded to storage with the key format:
+Upload each build as a single ZIP archive stored at:
+
 ```
-{project-uuid}/index.html
-{project-uuid}/assets/style.css
-{project-uuid}/assets/app.js
+static-sites/{project-uuid}.zip
 ```
+
+- Place `index.html`, assets, and other files at their desired paths inside the archive.
+- Central directory metadata is cached in KV (`cd:{project-uuid}.zip`) for 24 hours to accelerate repeat requests.
+- Re-uploading a ZIP refreshes metadata automatically after TTL expiry; call [`clearCentralDirectoryCache()`](src/services/zip/central-directory.ts) to force an immediate refresh after replacing an archive.
 
 ### Access Site
 
 Visit: `https://view-{project-uuid}.mysite.com`
 
 The CDN will:
-1. Extract UUID from subdomain
-2. Fetch files from storage at `{uuid}/{path}`
-3. Serve with appropriate headers
+1. Parse `{project-uuid}` from the subdomain.
+2. Load the ZIP central directory from KV (or hydrate from R2 using partial range reads).
+3. Locate the requested entry, fetch only the necessary compressed bytes, decompress if required, and respond with the correct headers.
 
 ## API Endpoints
 
@@ -232,25 +242,26 @@ Serves files from storage based on subdomain UUID.
 ## Storage Adapters
 
 ### R2 (Cloudflare)
-Automatically used when `STATIC_SITES` binding is available.
+
+- Primary deployment path.
+- Archives live at `static-sites/{uuid}.zip` within the bound R2 bucket.
+- Partial extraction powered by [`R2RangeReader`](src/adapters/zip/r2-range-reader.ts) and [`unzipit`](https://github.com/greggman/unzipit).
 
 ### Filesystem (Docker)
-```typescript
+
+```bash
 STORAGE_TYPE=filesystem
 STORAGE_PATH=/data/static-sites
 ```
 
-Files stored as:
-```
-/data/static-sites/
-  ├── {uuid}/
-  │   ├── index.html
-  │   └── assets/
-```
+- Designed for local development parity.
+- Serve pre-extracted directories that mimic the ZIP contents.
 
 ### R2 (Docker)
-When using R2 with Docker (instead of Cloudflare Workers), configure with R2 API credentials:
-```typescript
+
+When running the Node/Docker runtime against R2:
+
+```bash
 STORAGE_TYPE=r2
 R2_BUCKET=your-bucket-name
 R2_ACCOUNT_ID=your-cloudflare-account-id
@@ -258,7 +269,12 @@ R2_ACCESS_KEY_ID=your-access-key
 R2_SECRET_ACCESS_KEY=your-secret-key
 ```
 
+- Enables testing the partial ZIP flow outside Workers.
+- Shares the same ZIP extraction services used in production.
+
 ## Testing
+
+### Unit Tests
 
 ```bash
 # Run tests
@@ -270,6 +286,62 @@ npm run test:watch
 # Type checking
 npm run typecheck
 ```
+
+### Testing Subdomain Routing Locally
+
+The service extracts the UUID from subdomains like `view-{uuid}.domain.com`. To test this locally:
+
+#### Option 1: Using curl with Host Header
+
+```bash
+# Start local development server
+npm run dev:cloudflare  # Port 8787
+# OR
+npm run dev:docker      # Port 3000
+
+# Test with curl (replace {uuid} with your test UUID)
+curl -H "Host: view-abc123.localhost:8787" http://localhost:8787/index.html
+
+# For Docker:
+curl -H "Host: view-abc123.localhost:3000" http://localhost:3000/index.html
+```
+
+#### Option 2: Using /etc/hosts
+
+1. Add entries to `/etc/hosts`:
+```bash
+127.0.0.1 view-abc123.localhost
+127.0.0.1 view-test-uuid.localhost
+```
+
+2. Access in browser:
+- Cloudflare Workers: `http://view-abc123.localhost:8787`
+- Docker: `http://view-test-uuid.localhost:3000`
+
+#### Option 3: Testing ZIP Extraction Flow
+
+```bash
+# 1. Create a test ZIP with sample files
+mkdir -p test-site
+echo "<h1>Test Site</h1>" > test-site/index.html
+zip -r abc123.zip test-site/*
+
+# 2. Upload to your local R2/storage
+# For Cloudflare Workers with wrangler dev:
+wrangler r2 object put STATIC_SITES/abc123.zip --file=abc123.zip
+
+# 3. Test the extraction
+curl -H "Host: view-abc123.localhost:8787" http://localhost:8787/index.html
+```
+
+#### Verification Checklist
+
+- [ ] Subdomain parsing extracts correct UUID
+- [ ] ZIP central directory loads from KV/R2
+- [ ] Files extract with proper MIME types
+- [ ] SPA fallback works (e.g., `/about` → `/about/index.html`)
+- [ ] 404 handling for missing files
+- [ ] Cache headers applied correctly
 
 ## Building
 
@@ -310,21 +382,19 @@ async createBuild(projectId: string, userId: string, data: CreateBuildData) {
 
 ## Performance
 
-- **Cloudflare Workers:** ~10ms P50 response time
-- **Docker:** ~20-50ms P50 response time
-- **Cache Hit Ratio:** >95% with proper headers
-- **Concurrent Requests:** 1000+ per instance
+- **Cache miss (first request):** ~62 ms end-to-end (central directory hydration + range read).
+- **Cache hit:** ~31 ms (metadata served from KV with a single range request).
+- **Data transfer:** ~50× less than downloading the full ZIP, reducing egress costs.
 
 ## Monitoring
 
 ### Cloudflare
-- Use Wrangler analytics: `wrangler tail`
-- Cloudflare Dashboard → Workers → Analytics
+- `wrangler tail` to observe extraction logs and KV fallback warnings.
+- Cloudflare Dashboard → Workers → Analytics for R2 latency, KV hit rate, and cache effectiveness.
 
 ### Docker
-- Standard logging to stdout/stderr
+- Standard logging to stdout/stderr (includes extraction failures).
 - Health check endpoint: `/health`
-- Ready check: `/health/ready`
 
 ## Security
 
@@ -366,4 +436,7 @@ MIT
 
 For issues and questions:
 - GitHub Issues: [repo/issues]
-- Documentation: [See architecture docs](../md/HONO_CDN_SERVICE_ARCHITECTURE.md)
+- Documentation:
+  - [`docs/PARTIAL_ZIP_ARCHITECTURE.md`](docs/PARTIAL_ZIP_ARCHITECTURE.md)
+  - [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)
+  - [`docs/IMPLEMENTATION_SUMMARY.md`](docs/IMPLEMENTATION_SUMMARY.md)

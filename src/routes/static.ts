@@ -8,7 +8,7 @@ export const staticRoutes = new Hono<{ Bindings: Env }>();
 
 staticRoutes.get('/*', async (c) => {
   const url = new URL(c.req.url);
-  const storage = createStorageAdapter(c.env);
+  const storage = await createStorageAdapter(c.env);
 
   // Extract UUID from subdomain
   const subdomainInfo = parseSubdomain(url.hostname);
