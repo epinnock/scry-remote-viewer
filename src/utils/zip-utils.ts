@@ -6,7 +6,12 @@
  * Normalize file path and handle directory requests
  */
 export function normalizePath(pathname: string): string {
-  let path = pathname.slice(1) || 'index.html';
+  const hasLeadingSlash = pathname.startsWith('/');
+  let path = hasLeadingSlash ? pathname.slice(1) : pathname;
+
+  if (!path) {
+    path = 'index.html';
+  }
 
   // Handle directory requests
   if (path.endsWith('/')) {

@@ -3,6 +3,7 @@
 export interface Env {
   // Cloudflare Workers bindings
   STATIC_SITES?: R2Bucket;
+  UPLOAD_BUCKET?: R2Bucket;  // NEW: Upload Service bucket
   CDN_CACHE?: KVNamespace;
 
   // Common environment variables
@@ -43,6 +44,7 @@ export interface Env {
 
 export interface CloudflareEnv extends Env {
   STATIC_SITES: R2Bucket;
+  UPLOAD_BUCKET: R2Bucket;  // NEW: Upload Service bucket (required in Cloudflare)
   CDN_CACHE: KVNamespace;
   PLATFORM: 'cloudflare';
 }
