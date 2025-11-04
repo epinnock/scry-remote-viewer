@@ -75,11 +75,22 @@ cp .env.example .env
 #### Cloudflare Workers
 
 ```bash
-# Run locally with Wrangler
+# Option 1: Run from cloudflare directory (recommended for full wrangler features)
+cd cloudflare
+npx wrangler dev --remote
+
+# Option 2: Run from project root (using npm script)
 npm run dev:cloudflare
+
+# Option 3: Run from project root directly with wrangler
+npm run dev:cloudflare:local
 
 # The service will be available at http://localhost:8787
 ```
+
+**Note:** If you encounter "Missing entry-point" errors on different machines, ensure you're either:
+- Running from the `cloudflare/` directory, OR
+- Using `npm run dev:cloudflare` or `npm run dev:cloudflare:local` from the project root
 
 #### Docker/Node.js
 

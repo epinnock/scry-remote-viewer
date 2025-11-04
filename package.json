@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev:cloudflare": "cd cloudflare && wrangler dev --remote",
+    "dev:cloudflare:local": "wrangler dev --config cloudflare/wrangler.toml",
     "dev:docker": "tsx watch docker/server.ts",
     "build": "tsup",
     "build:cloudflare": "tsup --entry.worker cloudflare/worker.ts --format esm --platform neutral",

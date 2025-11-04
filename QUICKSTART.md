@@ -69,8 +69,12 @@ npx wrangler kv:namespace create CDN_CACHE --preview
 
 # 4. Update cloudflare/wrangler.toml with the KV namespace IDs from step 3
 
-# 5. Run locally
-npm run dev:cloudflare
+# 5. Run locally (choose one method):
+npm run dev:cloudflare              # Runs from cloudflare directory
+# OR
+npm run dev:cloudflare:local        # Runs from project root
+# OR
+cd cloudflare && npx wrangler dev --remote
 
 # 6. Test (in another terminal)
 curl http://localhost:8787/health
