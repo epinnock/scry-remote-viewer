@@ -1,6 +1,32 @@
 # Cloudflare Deployment Guide
 
-This guide walks you through deploying the Scry CDN Service to Cloudflare Workers.
+This guide walks you through deploying the Scry CDN Service to Cloudflare Workers with **path-based routing**.
+
+## URL Format
+
+**Path-Based Routing:** `https://view.scrymore.com/{uuid}/path/to/file`
+
+Examples:
+- `https://view.scrymore.com/storybook/` → serves index.html from storybook.zip
+- `https://view.scrymore.com/abc123/index.html` → serves from abc123.zip
+- `https://view.scrymore.com/my-project/assets/style.css` → serves assets/style.css
+
+## Quick Deployment
+
+```bash
+# 1. Upload your ZIP to R2 (correctly structured - files at root)
+export CLOUDFLARE_API_TOKEN=$(grep CLOUDFLARE_API_TOKEN secrets/cloudflare.login | cut -d'=' -f2)
+npx wrangler r2 object put scry-static-sites/storybook.zip --file=storybook-fixed.zip --remote
+
+# 2. Deploy to production
+npm run deploy:cloudflare
+
+# 3. Add DNS record (one-time setup)
+# In Cloudflare: Type=AAAA, Name=view, IPv6=100::, Proxied=Yes
+
+# 4. Access
+https://view.scrymore.com/storybook/
+```
 
 ## ⚠️ Authentication Troubleshooting
 

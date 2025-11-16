@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { createStorageAdapter } from '@/adapters/storage/factory';
-import { parseSubdomain } from '@/utils/subdomain';
+import { parsePathForUUID } from '@/utils/subdomain';
 import { getMimeType } from '@/utils/mime-types';
 import type { Env } from '@/types/env';
 
@@ -10,26 +10,17 @@ staticRoutes.get('/*', async (c) => {
   const url = new URL(c.req.url);
   const storage = await createStorageAdapter(c.env);
 
-  // Extract UUID from subdomain
-  const subdomainInfo = parseSubdomain(url.hostname);
+  // Extract UUID and file path from URL path
+  const pathInfo = parsePathForUUID(url.pathname);
   
-  if (!subdomainInfo || !subdomainInfo.isValid) {
-    return c.text('Invalid subdomain format. Expected: view-{uuid}.domain.com', 400);
+  if (!pathInfo || !pathInfo.isValid) {
+    return c.text('Invalid path format. Expected: /{uuid}/path/to/file.html', 400);
   }
 
-  const { uuid } = subdomainInfo;
+  const { uuid, filePath } = pathInfo;
 
   // Construct storage key
-  let requestPath = url.pathname;
-  
-  // Default to index.html for root and directory paths
-  if (requestPath === '/' || requestPath.endsWith('/')) {
-    requestPath = requestPath + 'index.html';
-  }
-
-  // Remove leading slash for storage key
-  const cleanPath = requestPath.startsWith('/') ? requestPath.slice(1) : requestPath;
-  const objectKey = `${uuid}/${cleanPath}`;
+  const objectKey = `${uuid}/${filePath}`;
 
   try {
     // Fetch from storage
@@ -37,7 +28,7 @@ staticRoutes.get('/*', async (c) => {
     
     if (!object) {
       // Try index.html for potential SPA routing
-      if (!cleanPath.includes('.')) {
+      if (!filePath.includes('.')) {
         const indexKey = `${uuid}/index.html`;
         const indexObject = await storage.get(indexKey);
         
@@ -50,7 +41,7 @@ staticRoutes.get('/*', async (c) => {
     }
 
     // Determine content type
-    const contentType = object.contentType || getMimeType(cleanPath);
+    const contentType = object.contentType || getMimeType(filePath);
 
     return serveObject(c, object, contentType);
   } catch (error) {

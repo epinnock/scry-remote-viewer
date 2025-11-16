@@ -1,8 +1,14 @@
 name = "scry-cdn-service"
-main = "worker.ts"
+main = "./worker.ts"
 compatibility_date = "2024-01-15"
 compatibility_flags = ["nodejs_compat"]
 account_id = "f54b9c10de9d140756dbf449aa124f1e"
+
+# Enable preview URLs for testing deployments
+preview_urls = true
+
+# Enable detailed logging
+logpush = false
 
 # R2 Bucket Binding
 [[r2_buckets]]
@@ -10,12 +16,18 @@ binding = "STATIC_SITES"
 bucket_name = "scry-static-sites"
 preview_bucket_name = "scry-static-sites-preview"
 
+# NEW: Upload Service bucket binding
+[[r2_buckets]]
+binding = "UPLOAD_BUCKET"
+bucket_name = "my-storybooks-production"
+preview_bucket_name = "my-storybooks-staging"
+
 # KV Namespace Binding (for caching)
 # Commented out for local testing - wrangler dev will use local KV automatically
 # [[kv_namespaces]]
 # binding = "CDN_CACHE"
 # id = "" # Add your KV namespace ID here
-# preview_id = "" # Add your preview KV namespace ID here
+# preview_id =="" # Add your preview KV namespace ID here
 
 # Production environment
 [env.production]
@@ -29,6 +41,11 @@ routes = [
 binding = "STATIC_SITES"
 bucket_name = "scry-static-sites"
 
+# NEW: Upload Service bucket for production
+[[env.production.r2_buckets]]
+binding = "UPLOAD_BUCKET"
+bucket_name = "my-storybooks-production"
+
 [[env.production.kv_namespaces]]
 binding = "CDN_CACHE"
 id = "8be50ecb14a4424fa2f8a61d35e1e827"
@@ -41,6 +58,11 @@ vars = { PLATFORM = "cloudflare", ENVIRONMENT = "development" }
 [[env.development.r2_buckets]]
 binding = "STATIC_SITES"
 bucket_name = "scry-static-sites-preview"
+
+# NEW: Upload Service bucket for development
+[[env.development.r2_buckets]]
+binding = "UPLOAD_BUCKET"
+bucket_name = "my-storybooks-staging"
 
 [[env.development.kv_namespaces]]
 binding = "CDN_CACHE"
@@ -58,3 +80,19 @@ preview_id = "a67fa5bbfdaf462394e802bb08ca9247"
 # Secrets (set with: wrangler secret put <KEY>)
 # - FIREBASE_SERVICE_ACCOUNT
 # - FIREBASE_API_KEY
+
+# Observability configuration
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+persist = true
+head_sampling_rate = 1
