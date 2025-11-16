@@ -42,6 +42,32 @@ export function isValidUUID(uuid: string): boolean {
 }
 
 /**
+ * Detect if a path segment is a version identifier
+ * 
+ * Supports multiple version formats:
+ * - Semantic: v1.0.0, v2.1.5
+ * - Extended: v0.0.0.1, v1.2.3.4
+ * - PR builds: pr-001, pr-123
+ * - Development: dev-123, dev-snapshot-456
+ * - Named: beta-2024, alpha-v2, canary-latest
+ * - Environment: staging, latest, main
+ */
+function isVersionSegment(segment: string): boolean {
+  // Minimum length check
+  if (segment.length < 2) return false;
+  
+  // Match common version patterns:
+  // 1. Starts with 'v' followed by version number (v1.0.0, v0.0.0.1)
+  // 2. PR format (pr-001, pr-123)
+  // 3. Dev format (dev-123, dev-snapshot-456)
+  // 4. Common identifiers (beta, alpha, canary, rc)
+  // 5. Environment names (staging, latest, main, production)
+  const commonPatterns = /^(v[\d.\-]+|pr-\d+|dev-[\w\-]+|beta[\w\-]*|alpha[\w\-]*|canary[\w\-]*|rc-?\d*|staging|latest|main|production)$/i;
+  
+  return commonPatterns.test(segment);
+}
+
+/**
  * Parse path to extract projectId, versionId, and file path
  * Expected format: /{projectId}/{versionId}/path/to/file.html
  * Or: /{projectId}/path/to/file.html (no version)
@@ -75,8 +101,8 @@ export function parsePathForUUID(pathname: string): PathInfo | null {
   let versionId = '';
   let filePathStartIndex = 1;
   
-  // Check if second segment is a version (starts with 'v' followed by digits/dots)
-  if (segments.length >= 2 && /^v[\d.]+$/.test(segments[1])) {
+  // Check if second segment is a version using flexible detection
+  if (segments.length >= 2 && isVersionSegment(segments[1])) {
     versionId = segments[1];
     filePathStartIndex = 2;
   }
