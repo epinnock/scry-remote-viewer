@@ -3,7 +3,9 @@ main = "./worker.ts"
 compatibility_date = "2024-01-15"
 compatibility_flags = ["nodejs_compat"]
 account_id = "f54b9c10de9d140756dbf449aa124f1e"
-
+# At the top level, after account_id
+[vars]
+PLATFORM = "cloudflare"
 # Enable preview URLs for testing deployments
 preview_urls = true
 
