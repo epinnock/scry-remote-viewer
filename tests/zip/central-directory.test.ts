@@ -78,7 +78,6 @@ describe('Central Directory Service', () => {
     it('hydrates from R2 when KV cache misses and caches result', async () => {
       mockKV.get.mockResolvedValue(null);
 
-      const entryOffset = vi.fn().mockResolvedValue(256);
       mockUnzip.mockResolvedValue({
         entries: {
           'index.html': {
@@ -86,14 +85,20 @@ describe('Central Directory Service', () => {
             compressedSize: 512,
             crc32: 12345,
             compressionMethod: 8,
-            offset: entryOffset
+            _rawEntry: {
+              relativeOffsetOfLocalHeader: 256,
+              crc32: 12345
+            }
           },
           'styles.css': {
             size: 256,
             compressedSize: 200,
             crc32: 67890,
             compressionMethod: 0,
-            offset: vi.fn().mockResolvedValue(1024)
+            _rawEntry: {
+              relativeOffsetOfLocalHeader: 1024,
+              crc32: 67890
+            }
           }
         }
       });
@@ -104,7 +109,6 @@ describe('Central Directory Service', () => {
       expect(mockR2RangeReader).toHaveBeenCalledWith(mockBucket, 'test.zip');
       expect(mockUnzip).toHaveBeenCalledWith(mockReader);
       expect(mockReader.getLength).toHaveBeenCalledTimes(1);
-      expect(entryOffset).toHaveBeenCalled();
 
       expect(result.entries['index.html']).toMatchObject({
         name: 'index.html',

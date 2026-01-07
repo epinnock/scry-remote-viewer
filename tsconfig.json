@@ -27,7 +27,8 @@
   "include": [
     "src/**/*",
     "cloudflare/**/*",
-    "docker/**/*"
+    "docker/**/*",
+    "tests/**/*"
   ],
   "exclude": [
     "node_modules",
