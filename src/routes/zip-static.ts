@@ -27,7 +27,7 @@ function getCoverageCacheControl(env: Env): string {
  */
 zipStaticRoutes.get('/*', async (c) => {
   const url = new URL(c.req.url);
-  const cache = c.env.CDN_CACHE! as any;
+  const cache = c.env.CDN_CACHE as any;
 
   // Extract UUID from path (view.domain.com/{uuid}/path)
   const pathInfo = parsePathForUUID(url.pathname);
