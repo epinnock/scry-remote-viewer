@@ -40,6 +40,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241127.0",
+    "@eslint/js": "^9.39.2",
     "@hono/node-server": "^1.13.7",
     "@types/node": "^22.9.3",
     "@types/pako": "^2.0.4",
@@ -49,6 +50,7 @@
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.53.0",
     "vitest": "^2.1.6",
     "wrangler": "^4.45.1"
   },
