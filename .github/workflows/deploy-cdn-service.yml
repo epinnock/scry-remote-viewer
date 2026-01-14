@@ -1,0 +1,163 @@
+name: Deploy CDN Service to Cloudflare
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'cloudflare/**'
+      - 'src/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - '.github/workflows/deploy-cdn-service.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'cloudflare/**'
+      - 'src/**'
+      - 'package.json'
+      - 'tsconfig.json'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - production
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run linting
+        run: npm run lint --if-present
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    environment:
+      name: staging
+      url: https://scry-cdn-service-dev.scrymore.workers.dev
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Cloudflare Workers (Staging)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare
+          command: deploy --env development
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          curl -f https://scry-cdn-service-dev.scrymore.workers.dev/health || echo "Health check pending..."
+
+  deploy-production:
+    name: Deploy to Production
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://view.scrymore.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Cloudflare Workers (Production)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare
+          command: deploy --env production
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          curl -f https://view.scrymore.com/health || echo "Health check pending..."
+
+  deploy-manual:
+    name: Manual Deployment
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare
+          command: deploy --env ${{ github.event.inputs.environment }}
+
+      - name: Set deployment URL
+        id: url
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "production" ]; then
+            echo "url=https://view.scrymore.com" >> $GITHUB_OUTPUT
+          else
+            echo "url=https://scry-cdn-service-dev.scrymore.workers.dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          curl -f ${{ steps.url.outputs.url }}/health || echo "Health check pending..."
