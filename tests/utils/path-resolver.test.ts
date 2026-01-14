@@ -97,7 +97,10 @@ describe('path-resolver', () => {
 
     it('handles multi-word projects', () => {
       const result = resolveUUID('component-library-v3-0-0');
-      expect(result?.project).toBe('component-library');
+      expect(result?.type).toBe('compound');
+      if (result?.type === 'compound') {
+        expect(result.project).toBe('component-library');
+      }
       expect(result?.zipKey).toBe('component-library/v3.0.0/storybook.zip');
     });
 
