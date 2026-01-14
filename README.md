@@ -183,6 +183,13 @@ ZIP_MAX_FILE_SIZE=10485760
 
 # CDN
 CACHE_CONTROL=public, max-age=31536000, immutable
+
+# CORS
+# - If CORS_ALLOWED_ORIGINS is set, it is used as the allowlist (comma-separated).
+# - Otherwise, ALLOWED_ORIGINS is used (legacy).
+# - If either is set to "*", responses will use wildcard mode.
+CORS_ALLOWED_ORIGINS=https://dashboard.scrymore.com,https://www.scrymore.com,http://localhost:3000,http://localhost:3001
+CORS_FORCE_WILDCARD=false
 ALLOWED_ORIGINS=*
 ```
 
@@ -249,6 +256,31 @@ GET /{any-path}
 ```
 
 Serves files from storage based on subdomain UUID.
+
+### Coverage Reports
+Coverage report JSON files are served **alongside** Storybook builds, but are stored as **standalone objects** in R2:
+
+```
+{projectId}/{versionId}/coverage-report.json
+```
+
+They are accessible via:
+
+```bash
+GET /{projectId}/{versionId}/coverage-report.json
+```
+
+Example:
+
+```bash
+curl -H "Origin: https://dashboard.scrymore.com" \
+  https://view.scrymore.com/test-project/v1.0.0/coverage-report.json
+```
+
+Expected headers:
+- `Content-Type: application/json`
+- `Cache-Control: public, max-age=31536000, immutable` (production)
+- `Access-Control-Allow-Origin: *` or a reflected dashboard origin
 
 ## Storage Adapters
 
@@ -422,9 +454,9 @@ async createBuild(projectId: string, userId: string, data: CreateBuildData) {
 3. Check storage adapter configuration
 
 ### CORS errors
-1. Verify `ALLOWED_ORIGINS` setting
+1. Verify `CORS_ALLOWED_ORIGINS` / `ALLOWED_ORIGINS` configuration
 2. Check DNS/routing configuration
-3. Ensure CORS middleware is active
+3. Ensure CORS middleware is active (see [`corsHeaders()`](src/middleware/cors.ts:1))
 
 ### Performance issues
 1. Enable compression middleware

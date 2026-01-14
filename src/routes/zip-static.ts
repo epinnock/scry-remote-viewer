@@ -8,6 +8,18 @@ import type { Env } from '@/types/env';
 
 export const zipStaticRoutes = new Hono<{ Bindings: Env }>();
 
+function isCoverageReportRequest(filePath: string): boolean {
+  const pathNoQuery = filePath.split('?')[0];
+  return pathNoQuery.endsWith('coverage-report.json');
+}
+
+function getCoverageCacheControl(env: Env): string {
+  // Coverage reports are immutable once created.
+  // Use aggressive caching in production and short caching elsewhere.
+  const isProd = env.NODE_ENV === 'production';
+  return isProd ? 'public, max-age=31536000, immutable' : 'public, max-age=60';
+}
+
 /**
  * Serve static files from ZIP archives stored in R2
  * Uses HTTP range requests for efficient partial extraction
@@ -15,7 +27,7 @@ export const zipStaticRoutes = new Hono<{ Bindings: Env }>();
  */
 zipStaticRoutes.get('/*', async (c) => {
   const url = new URL(c.req.url);
-  const cache = c.env.CDN_CACHE! as any;
+  const cache = c.env.CDN_CACHE as any;
 
   // Extract UUID from path (view.domain.com/{uuid}/path)
   const pathInfo = parsePathForUUID(url.pathname);
@@ -44,6 +56,47 @@ zipStaticRoutes.get('/*', async (c) => {
   console.log('[DEBUG] Selected bucket:', resolution.bucket);
   console.log('[DEBUG] ZIP key:', zipKey);
   console.log('[DEBUG] Storage bucket available:', storage ? 'YES' : 'NO');
+
+  // Coverage report requests are stored as standalone JSON objects in R2:
+  //   {projectId}/{versionId}/coverage-report.json
+  // They are not part of storybook.zip.
+  if (isCoverageReportRequest(filePath)) {
+    // Derive the coverage key from the resolved zip key:
+    //   {project}/{version}/storybook.zip -> {project}/{version}/coverage-report.json
+    //   {project}/storybook.zip           -> {project}/coverage-report.json
+    const coverageKey = zipKey.replace(/\/storybook\.zip$/, '/coverage-report.json');
+
+    const object = await storage.get(coverageKey);
+
+    if (!object) {
+      return new Response(JSON.stringify({ error: 'Coverage report not found' }), {
+        status: 404,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store'
+        }
+      });
+    }
+
+    const cacheControl = getCoverageCacheControl(c.env);
+
+    const headers = new Headers();
+    headers.set('Content-Type', 'application/json');
+    headers.set('Cache-Control', cacheControl);
+
+    // Hint for CDNs that understand separate cache-control semantics.
+    // (Harmless if ignored)
+    headers.set(
+      'CDN-Cache-Control',
+      cacheControl.includes('31536000') ? 'max-age=31536000' : 'max-age=60'
+    );
+
+    // Best-effort metadata
+    if (object.size) headers.set('Content-Length', String(object.size));
+    if (object.etag) headers.set('ETag', object.etag);
+
+    return new Response(object.body, { headers });
+  }
 
   // Normalize and validate requested path
   const cleanPath = normalizePath('/' + filePath);

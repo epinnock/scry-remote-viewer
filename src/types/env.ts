@@ -30,7 +30,13 @@ export interface Env {
   LOG_LEVEL?: 'debug' | 'info' | 'warn' | 'error';
 
   // CDN
+  /** Legacy / general allow-origin configuration (use '*' or a comma-separated list) */
   ALLOWED_ORIGINS?: string;
+  /** Preferred CORS allowlist (comma-separated list) */
+  CORS_ALLOWED_ORIGINS?: string;
+  /** Force wildcard mode even if allowlist contains matches */
+  CORS_FORCE_WILDCARD?: string;
+
   MAX_FILE_SIZE?: string;
   CACHE_CONTROL?: string;
   BASE_DOMAIN?: string;

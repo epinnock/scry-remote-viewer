@@ -4,38 +4,43 @@ import type { ZipCentralDirectory, ZipFileEntry } from '@/types/zip';
 import type { R2Bucket } from '@cloudflare/workers-types';
 
 /**
- * Get central directory from cache or read from R2
- * Central directory is cached in KV for 24 hours to avoid repeated R2 reads
+ * Get central directory from cache or read from R2.
+ *
+ * In some local-dev modes KV may not be bound; caching is optional.
  */
 export async function getCentralDirectory(
   bucket: R2Bucket,
-  kv: KVNamespace,
+  kv: KVNamespace | undefined,
   zipKey: string
 ): Promise<ZipCentralDirectory> {
   const cacheKey = `cd:${zipKey}`;
 
-  // Try KV cache first
-  try {
-    const cached = await kv.get<ZipCentralDirectory>(cacheKey, 'json');
-    if (cached) {
-      return cached;
+  // Try KV cache first (if available)
+  if (kv) {
+    try {
+      const cached = await kv.get<ZipCentralDirectory>(cacheKey, 'json');
+      if (cached) {
+        return cached;
+      }
+    } catch (error) {
+      console.warn(`Failed to read central directory from KV cache: ${error}`);
+      // Continue to read from R2
     }
-  } catch (error) {
-    console.warn(`Failed to read central directory from KV cache: ${error}`);
-    // Continue to read from R2
   }
 
   // Read from R2 using range requests
   const centralDir = await readCentralDirectoryFromR2(bucket, zipKey);
 
-  // Cache for 24 hours
-  try {
-    await kv.put(cacheKey, JSON.stringify(centralDir), {
-      expirationTtl: 86400
-    });
-  } catch (error) {
-    console.warn(`Failed to cache central directory in KV: ${error}`);
-    // Continue even if caching fails
+  // Cache for 24 hours (best-effort)
+  if (kv) {
+    try {
+      await kv.put(cacheKey, JSON.stringify(centralDir), {
+        expirationTtl: 86400,
+      });
+    } catch (error) {
+      console.warn(`Failed to cache central directory in KV: ${error}`);
+      // Continue even if caching fails
+    }
   }
 
   return centralDir;

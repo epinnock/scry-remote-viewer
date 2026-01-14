@@ -1,27 +1,55 @@
 import { Hono } from 'hono';
-import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { compress } from 'hono/compress';
-import { staticRoutes } from './routes/static';
 import { zipStaticRoutes } from './routes/zip-static';
 import { healthRoutes } from './routes/health';
 import type { Env } from './types/env';
+import {
+  corsHeaders,
+  handleOptions,
+  parseAllowedOrigins,
+  DEFAULT_ALLOWED_ORIGINS
+} from './middleware/cors';
+
+function resolveCorsConfig(env: Env) {
+  // Prefer explicit CORS_ALLOWED_ORIGINS, fallback to legacy ALLOWED_ORIGINS.
+  const fromEnv =
+    parseAllowedOrigins(env.CORS_ALLOWED_ORIGINS) ?? parseAllowedOrigins(env.ALLOWED_ORIGINS);
+
+  // Legacy convention: ALLOWED_ORIGINS='*' means force wildcard.
+  const forceWildcard = (env.CORS_FORCE_WILDCARD ?? env.ALLOWED_ORIGINS)?.trim() === '*';
+
+  return {
+    allowedOrigins: fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_ALLOWED_ORIGINS,
+    forceWildcard
+  };
+}
 
 export function createApp() {
   const app = new Hono<{ Bindings: Env }>();
 
   // Global middleware
   app.use('*', logger());
-  
-  app.use('*', cors({
-    origin: (origin) => {
-      // In production, validate against ALLOWED_ORIGINS
-      return origin;
-    },
-    allowMethods: ['GET', 'HEAD', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization'],
-    maxAge: 86400,
-  }));
+
+  // CORS (CRITICAL): must be applied before dashboard can fetch coverage reports.
+  app.use('*', async (c, next) => {
+    const corsConfig = resolveCorsConfig(c.env);
+
+    // Handle preflight requests.
+    if (c.req.method === 'OPTIONS') {
+      return handleOptions(c.req.raw, corsConfig);
+    }
+
+    try {
+      await next();
+    } finally {
+      // Ensure CORS headers are present on all responses (including 404s).
+      const cors = corsHeaders(c.req.raw, corsConfig);
+      cors.forEach((value, key) => {
+        c.res.headers.set(key, value);
+      });
+    }
+  });
 
   // Temporarily disabled for testing
   // app.use('*', compress());
@@ -31,9 +59,6 @@ export function createApp() {
 
   // ZIP-based static file serving (primary)
   app.route('/', zipStaticRoutes);
-
-  // Fallback to extracted file serving (for compatibility)
-  // app.route('/', staticRoutes);
 
   // 404 handler
   app.notFound((c) => {
