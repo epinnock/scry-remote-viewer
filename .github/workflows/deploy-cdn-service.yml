@@ -59,7 +59,7 @@ jobs:
     if: github.event_name == 'pull_request'
     environment:
       name: staging
-      url: https://scry-cdn-service-dev.scrymore.workers.dev
+      url: https://scry-cdn-service-dev.epinnock.workers.dev
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -84,7 +84,7 @@ jobs:
       - name: Verify deployment
         run: |
           sleep 5
-          curl -f https://scry-cdn-service-dev.scrymore.workers.dev/health || echo "Health check pending..."
+          curl -f https://scry-cdn-service-dev.epinnock.workers.dev/health || echo "Health check pending..."
 
   deploy-production:
     name: Deploy to Production
@@ -93,7 +93,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: production
-      url: https://view.scrymore.com
+      url: https://scry-cdn-service.epinnock.workers.dev
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -118,7 +118,7 @@ jobs:
       - name: Verify deployment
         run: |
           sleep 5
-          curl -f https://view.scrymore.com/health || echo "Health check pending..."
+          curl -f https://scry-cdn-service.epinnock.workers.dev/health || echo "Health check pending..."
 
   deploy-manual:
     name: Manual Deployment
@@ -152,9 +152,9 @@ jobs:
         id: url
         run: |
           if [ "${{ github.event.inputs.environment }}" == "production" ]; then
-            echo "url=https://view.scrymore.com" >> $GITHUB_OUTPUT
+            echo "url=https://scry-cdn-service.epinnock.workers.dev" >> $GITHUB_OUTPUT
           else
-            echo "url=https://scry-cdn-service-dev.scrymore.workers.dev" >> $GITHUB_OUTPUT
+            echo "url=https://scry-cdn-service-dev.epinnock.workers.dev" >> $GITHUB_OUTPUT
           fi
 
       - name: Verify deployment
