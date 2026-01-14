@@ -4,20 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'cloudflare/**'
-      - 'src/**'
-      - 'package.json'
-      - 'tsconfig.json'
-      - '.github/workflows/deploy-cdn-service.yml'
   pull_request:
     branches:
       - main
-    paths:
-      - 'cloudflare/**'
-      - 'src/**'
-      - 'package.json'
-      - 'tsconfig.json'
   workflow_dispatch:
     inputs:
       environment:
@@ -55,7 +44,7 @@ jobs:
         run: pnpm test
 
       - name: Run linting
-        run: pnpm run lint --if-present
+        run: pnpm run lint
 
   deploy-staging:
     name: Deploy to Staging
