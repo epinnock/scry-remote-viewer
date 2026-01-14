@@ -4,20 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'cloudflare/**'
-      - 'src/**'
-      - 'package.json'
-      - 'tsconfig.json'
-      - '.github/workflows/deploy-cdn-service.yml'
   pull_request:
     branches:
       - main
-    paths:
-      - 'cloudflare/**'
-      - 'src/**'
-      - 'package.json'
-      - 'tsconfig.json'
   workflow_dispatch:
     inputs:
       environment:
