@@ -62,7 +62,7 @@ function isVersionSegment(segment: string): boolean {
   // 3. Dev format (dev-123, dev-snapshot-456)
   // 4. Common identifiers (beta, alpha, canary, rc)
   // 5. Environment names (staging, latest, main, production)
-  const commonPatterns = /^(v[\d.\-]+|pr-\d+|dev-[\w\-]+|beta[\w\-]*|alpha[\w\-]*|canary[\w\-]*|rc-?\d*|staging|latest|main|production)$/i;
+  const commonPatterns = /^(v[\d.-]+|pr-\d+|dev-[\w-]+|beta[\w-]*|alpha[\w-]*|canary[\w-]*|rc-?\d*|staging|latest|main|production)$/i;
   
   return commonPatterns.test(segment);
 }
