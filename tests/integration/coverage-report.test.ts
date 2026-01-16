@@ -19,7 +19,13 @@ describe('coverage report serving', () => {
       UPLOAD_BUCKET: {
         get: bucketGet
       },
-      CDN_CACHE: {}
+      CDN_CACHE: {
+        get: vi.fn().mockResolvedValue({
+          visibility: 'public',
+          memberIds: [],
+          cachedAt: Date.now(),
+        }),
+      }
     };
 
     const req = new Request('https://view.scrymore.com/test-project/v1.0.0/coverage-report.json', {
@@ -47,7 +53,13 @@ describe('coverage report serving', () => {
       UPLOAD_BUCKET: {
         get: vi.fn(async () => null)
       },
-      CDN_CACHE: {}
+      CDN_CACHE: {
+        get: vi.fn().mockResolvedValue({
+          visibility: 'public',
+          memberIds: [],
+          cachedAt: Date.now(),
+        }),
+      }
     };
 
     const req = new Request('https://view.scrymore.com/test-project/v1.0.0/coverage-report.json', {
@@ -75,7 +87,13 @@ describe('coverage report serving', () => {
           body: new Response('{"x":1}').body!
         }))
       },
-      CDN_CACHE: {}
+      CDN_CACHE: {
+        get: vi.fn().mockResolvedValue({
+          visibility: 'public',
+          memberIds: [],
+          cachedAt: Date.now(),
+        }),
+      }
     };
 
     const req = new Request('https://view.scrymore.com/test-project/v1.0.0/coverage-report.json');

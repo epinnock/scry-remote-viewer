@@ -3,17 +3,21 @@
 export interface Env {
   // Cloudflare Workers bindings
   STATIC_SITES?: R2Bucket;
-  UPLOAD_BUCKET?: R2Bucket;  // NEW: Upload Service bucket
+  UPLOAD_BUCKET?: R2Bucket; // NEW: Upload Service bucket
   CDN_CACHE?: KVNamespace;
 
   // Common environment variables
-  PLATFORM?: 'cloudflare' | 'docker';
+  PLATFORM?: "cloudflare" | "docker";
   FIREBASE_PROJECT_ID?: string;
   FIREBASE_SERVICE_ACCOUNT?: string;
   FIREBASE_API_KEY?: string;
 
+  // Service account auth for Firestore (Option B)
+  FIREBASE_CLIENT_EMAIL?: string;
+  FIREBASE_PRIVATE_KEY?: string;
+
   // Docker/R2 specific
-  STORAGE_TYPE?: 'r2' | 'filesystem';
+  STORAGE_TYPE?: "r2" | "filesystem";
   STORAGE_PATH?: string;
   R2_BUCKET?: string;
   R2_ACCOUNT_ID?: string;
@@ -26,8 +30,8 @@ export interface Env {
 
   // Server
   PORT?: string;
-  NODE_ENV?: 'development' | 'production' | 'test';
-  LOG_LEVEL?: 'debug' | 'info' | 'warn' | 'error';
+  NODE_ENV?: "development" | "production" | "test";
+  LOG_LEVEL?: "debug" | "info" | "warn" | "error";
 
   // CDN
   /** Legacy / general allow-origin configuration (use '*' or a comma-separated list) */
@@ -50,12 +54,13 @@ export interface Env {
 
 export interface CloudflareEnv extends Env {
   STATIC_SITES: R2Bucket;
-  UPLOAD_BUCKET: R2Bucket;  // NEW: Upload Service bucket (required in Cloudflare)
+  UPLOAD_BUCKET: R2Bucket; // NEW: Upload Service bucket (required in Cloudflare)
   CDN_CACHE: KVNamespace;
-  PLATFORM: 'cloudflare';
+  FIREBASE_PROJECT_ID: string;
+  PLATFORM: "cloudflare";
 }
 
 export interface DockerEnv extends Env {
-  PLATFORM: 'docker';
-  STORAGE_TYPE: 'r2' | 'filesystem';
+  PLATFORM: "docker";
+  STORAGE_TYPE: "r2" | "filesystem";
 }
