@@ -18,26 +18,51 @@ function resolveCorsConfig(env: Env) {
     parseAllowedOrigins(env.CORS_ALLOWED_ORIGINS) ??
     parseAllowedOrigins(env.ALLOWED_ORIGINS);
 
-  // Legacy convention: ALLOWED_ORIGINS='*' means force wildcard.
-  const forceWildcard =
-    (env.CORS_FORCE_WILDCARD ?? env.ALLOWED_ORIGINS)?.trim() === "*";
+  // IMPORTANT: Do NOT force wildcard when using credentialed requests.
+  // Browsers reject Access-Control-Allow-Origin='*' with credentials: include.
+  // Only force wildcard if explicitly set via CORS_FORCE_WILDCARD=true.
+  const forceWildcard = env.CORS_FORCE_WILDCARD === "true";
+
+  const allowedOrigins =
+    fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_ALLOWED_ORIGINS;
+  const debug = env.NODE_ENV !== "production";
+
+  // Debug logging for CORS configuration
+  if (debug) {
+    console.log("[CORS] Config resolved:", {
+      forceWildcard,
+      allowedOrigins: allowedOrigins.slice(0, 5), // Log first 5 origins
+      envCorsAllowedOrigins: env.CORS_ALLOWED_ORIGINS,
+      envAllowedOrigins: env.ALLOWED_ORIGINS,
+    });
+  }
 
   return {
-    allowedOrigins:
-      fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_ALLOWED_ORIGINS,
+    allowedOrigins,
     forceWildcard,
+    debug,
   };
 }
 
 export function createApp() {
-  const app = new Hono<{ Bindings: Env }>();
+  const app = new Hono<{
+    Bindings: Env;
+    Variables: { corsConfig: ReturnType<typeof resolveCorsConfig> };
+  }>();
 
   // Global middleware
   app.use("*", logger());
 
-  // CORS (CRITICAL): must be applied before dashboard can fetch coverage reports.
+  // Resolve CORS config once per request for reuse.
   app.use("*", async (c, next) => {
     const corsConfig = resolveCorsConfig(c.env);
+    c.set("corsConfig", corsConfig);
+    await next();
+  });
+
+  // CORS (CRITICAL): must be applied before dashboard can fetch coverage reports.
+  app.use("*", async (c, next) => {
+    const corsConfig = c.get("corsConfig") ?? resolveCorsConfig(c.env);
 
     // Handle preflight requests.
     if (c.req.method === "OPTIONS") {
@@ -75,6 +100,12 @@ export function createApp() {
   // Error handler
   app.onError((err, c) => {
     console.error("Application error:", err);
+    // Ensure CORS headers are present on error responses as well
+    const corsConfig = c.get("corsConfig") ?? resolveCorsConfig(c.env);
+    const cors = corsHeaders(c.req.raw, corsConfig);
+    cors.forEach((value, key) => {
+      c.res.headers.set(key, value);
+    });
     return c.text("Internal Server Error", 500);
   });
 
