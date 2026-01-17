@@ -63,6 +63,9 @@ export interface CorsConfig {
   /** Optional override for Access-Control-Max-Age */
   maxAgeSeconds?: number;
 
+  /** Enable debug logging for CORS decisions. */
+  debug?: boolean;
+
   /**
    * If true, include Access-Control-Allow-Credentials: true.
    * Required for the browser to send cookies with cross-origin requests.
@@ -106,25 +109,33 @@ export function corsHeaders(
 
   // Debug logging for CORS decision
   const originInAllowlist = origin ? allowedOrigins.includes(origin) : false;
-  console.log("[CORS] Processing request:", {
-    origin,
-    forceWildcard: config.forceWildcard,
-    originInAllowlist,
-    allowedOriginsCount: allowedOrigins.length,
-  });
+  if (config.debug) {
+    console.log("[CORS] Processing request:", {
+      origin,
+      forceWildcard: config.forceWildcard,
+      originInAllowlist,
+      allowedOriginsCount: allowedOrigins.length,
+    });
+  }
 
   if (config.forceWildcard) {
-    console.log("[CORS] Using wildcard due to forceWildcard=true");
+    if (config.debug) {
+      console.log("[CORS] Using wildcard due to forceWildcard=true");
+    }
     headers.set("Access-Control-Allow-Origin", "*");
   } else if (origin && originInAllowlist) {
     // Reflect whitelisted origins - required for credentials to work
-    console.log("[CORS] Reflecting origin:", origin);
+    if (config.debug) {
+      console.log("[CORS] Reflecting origin:", origin);
+    }
     headers.set("Access-Control-Allow-Origin", origin);
     headers.set("Vary", "Origin");
     isSpecificOrigin = true;
   } else {
     // Public, non-credentialed access.
-    console.log("[CORS] Using wildcard - origin not in allowlist:", origin);
+    if (config.debug) {
+      console.log("[CORS] Using wildcard - origin not in allowlist:", origin);
+    }
     headers.set("Access-Control-Allow-Origin", "*");
   }
 
