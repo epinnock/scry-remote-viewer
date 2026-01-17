@@ -61,8 +61,8 @@ export function createApp() {
   // Health check routes (no auth required)
   app.route("/health", healthRoutes);
 
-  // Auth middleware for all viewer routes
-  app.use("/*", privateProjectAuth);
+  // Auth middleware for viewer routes only (exclude /health)
+  app.use("/:projectId/*", privateProjectAuth);
 
   // ZIP-based static file serving (primary)
   app.route("/", zipStaticRoutes);

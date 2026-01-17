@@ -223,6 +223,7 @@ export async function getProjectVisibility(
       };
       
       await env.CDN_CACHE.put(cacheKey, JSON.stringify(cacheValue), {
+        // KV TTL intentionally longer than CACHE_TTL_MS for stale-while-revalidate fallback.
         expirationTtl: 300, // 5 minutes max in KV
       });
     }

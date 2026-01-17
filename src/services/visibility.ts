@@ -13,6 +13,7 @@ interface VisibilityCache {
 }
 
 const CACHE_TTL_MS = 60 * 1000;
+const KV_EXPIRATION_TTL = 300;
 
 export async function getProjectVisibility(
   projectId: string,
@@ -49,7 +50,8 @@ export async function getProjectVisibility(
       };
 
       await env.CDN_CACHE.put(cacheKey, JSON.stringify(cacheValue), {
-        expirationTtl: 300,
+        // KV TTL intentionally longer than CACHE_TTL_MS for stale-while-revalidate fallback.
+        expirationTtl: KV_EXPIRATION_TTL,
       });
     }
 
