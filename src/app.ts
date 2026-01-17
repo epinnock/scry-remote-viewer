@@ -18,13 +18,24 @@ function resolveCorsConfig(env: Env) {
     parseAllowedOrigins(env.CORS_ALLOWED_ORIGINS) ??
     parseAllowedOrigins(env.ALLOWED_ORIGINS);
 
-  // Legacy convention: ALLOWED_ORIGINS='*' means force wildcard.
-  const forceWildcard =
-    (env.CORS_FORCE_WILDCARD ?? env.ALLOWED_ORIGINS)?.trim() === "*";
+  // IMPORTANT: Do NOT force wildcard when using credentialed requests.
+  // Browsers reject Access-Control-Allow-Origin='*' with credentials: include.
+  // Only force wildcard if explicitly set via CORS_FORCE_WILDCARD=true.
+  const forceWildcard = env.CORS_FORCE_WILDCARD === "true";
+
+  const allowedOrigins =
+    fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_ALLOWED_ORIGINS;
+
+  // Debug logging for CORS configuration
+  console.log("[CORS] Config resolved:", {
+    forceWildcard,
+    allowedOrigins: allowedOrigins.slice(0, 5), // Log first 5 origins
+    envCorsAllowedOrigins: env.CORS_ALLOWED_ORIGINS,
+    envAllowedOrigins: env.ALLOWED_ORIGINS,
+  });
 
   return {
-    allowedOrigins:
-      fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_ALLOWED_ORIGINS,
+    allowedOrigins,
     forceWildcard,
   };
 }
@@ -75,6 +86,11 @@ export function createApp() {
   // Error handler
   app.onError((err, c) => {
     console.error("Application error:", err);
+    // Ensure CORS headers are present on error responses as well
+    const cors = corsHeaders(c.req.raw, resolveCorsConfig(c.env));
+    cors.forEach((value, key) => {
+      c.res.headers.set(key, value);
+    });
     return c.text("Internal Server Error", 500);
   });
 

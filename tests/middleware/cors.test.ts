@@ -37,6 +37,7 @@ describe('CORS middleware', () => {
       const headers = corsHeaders(req, { allowedOrigins: DEFAULT_ALLOWED_ORIGINS });
       expect(headers.get('Access-Control-Allow-Origin')).toBe('https://dashboard.scrymore.com');
       expect(headers.get('Vary')).toBe('Origin');
+      expect(headers.get('Access-Control-Allow-Credentials')).toBe('true');
     });
 
     it('falls back to wildcard for non-whitelisted origins', () => {
@@ -63,6 +64,7 @@ describe('CORS middleware', () => {
       });
 
       expect(headers.get('Access-Control-Allow-Origin')).toBe('*');
+      expect(headers.get('Access-Control-Allow-Credentials')).toBeNull();
     });
 
     it('sets allow methods/headers/max-age defaults', () => {
@@ -70,7 +72,7 @@ describe('CORS middleware', () => {
       const headers = corsHeaders(req);
 
       expect(headers.get('Access-Control-Allow-Methods')).toBe('GET, HEAD, OPTIONS');
-      expect(headers.get('Access-Control-Allow-Headers')).toBe('Content-Type, Accept');
+      expect(headers.get('Access-Control-Allow-Headers')).toBe('Content-Type, Accept, Cookie');
       expect(headers.get('Access-Control-Max-Age')).toBe('86400');
     });
   });
