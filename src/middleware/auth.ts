@@ -27,21 +27,45 @@ export async function privateProjectAuth(
     return c.text("Invalid path", 400);
   }
 
+  console.info("[AUTH] Checking access for project:", projectId);
+
   const project = await getProjectVisibility(projectId, c.env);
 
   if (!project) {
+    console.info(
+      "[AUTH] Project not found in Firestore, allowing access:",
+      projectId,
+    );
     return next();
   }
+
+  console.info("[AUTH] Project visibility:", {
+    projectId,
+    visibility: project.visibility,
+    memberCount: project.memberIds.length,
+    memberIds: project.memberIds,
+  });
 
   if (project.visibility === "public") {
+    console.info("[AUTH] Public project, allowing access:", projectId);
     return next();
   }
 
-  const cookies = parseCookies(c.req.header("Cookie") ?? null);
+  // Private project - check authentication
+  const cookieHeader = c.req.header("Cookie");
+  console.info("[AUTH] Cookie header present:", !!cookieHeader);
+
+  const cookies = parseCookies(cookieHeader ?? null);
   const sessionCookie = cookies[SESSION_COOKIE_NAME];
 
+  console.info("[AUTH] Session cookie present:", !!sessionCookie);
+  console.info("[AUTH] All cookies received:", Object.keys(cookies));
+
   if (!sessionCookie) {
-    console.info("[AUTH] No session cookie for private project:", projectId);
+    console.info("[AUTH] No session cookie for private project:", {
+      projectId,
+      cookieHeader: cookieHeader ? `${cookieHeader.substring(0, 50)}...` : null,
+    });
     return c.text("Unauthorized", 401);
   }
 
@@ -52,21 +76,45 @@ export async function privateProjectAuth(
     return c.text("Server configuration error", 500);
   }
 
+  console.info(
+    "[AUTH] Validating session cookie for Firebase project:",
+    firebaseProjectId,
+  );
+
   const validation = await validateFirebaseSessionCookie(
     sessionCookie,
     firebaseProjectId,
     c.env.CDN_CACHE,
   );
 
+  console.info("[AUTH] Session validation result:", {
+    valid: validation.valid,
+    uid: validation.uid,
+    email: validation.email,
+    error: validation.error,
+  });
+
   if (!validation.valid || !validation.uid) {
-    console.info("[AUTH] Invalid session cookie:", validation.error);
+    console.info("[AUTH] Invalid session cookie:", {
+      projectId,
+      error: validation.error,
+    });
     return c.text("Unauthorized", 401);
   }
 
-  if (!isProjectMember(project.memberIds, validation.uid)) {
+  const isMember = isProjectMember(project.memberIds, validation.uid);
+  console.info("[AUTH] Membership check:", {
+    uid: validation.uid,
+    projectId,
+    memberIds: project.memberIds,
+    isMember,
+  });
+
+  if (!isMember) {
     console.info("[AUTH] User not a member:", {
       uid: validation.uid,
       projectId,
+      memberIds: project.memberIds,
     });
     return c.text("Forbidden", 403);
   }

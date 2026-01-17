@@ -73,6 +73,12 @@ async function fetchProjectFromFirestore(
 
   const url = `https://firestore.googleapis.com/v1/projects/${firebaseProjectId}/databases/(default)/documents/projects/${projectId}`;
 
+  console.info("[VISIBILITY] Fetching project from Firestore:", {
+    projectId,
+    firebaseProjectId,
+    url,
+  });
+
   // Build request headers - use service account auth if configured
   const headers: Record<string, string> = {};
 
@@ -96,14 +102,29 @@ async function fetchProjectFromFirestore(
 
   const response = await fetch(url, { headers });
 
+  console.info("[VISIBILITY] Firestore response status:", response.status);
+
   if (!response.ok) {
     if (response.status === 404) {
+      console.info("[VISIBILITY] Project not found in Firestore:", projectId);
       return null;
     }
+    const errorText = await response.text();
+    console.error("[VISIBILITY] Firestore request failed:", {
+      status: response.status,
+      error: errorText,
+    });
     throw new Error(`Firestore request failed: ${response.status}`);
   }
 
   const doc = (await response.json()) as FirestoreDocument;
+
+  console.info("[VISIBILITY] Raw Firestore document fields:", {
+    hasVisibility: !!doc.fields?.visibility,
+    hasMemberIds: !!doc.fields?.memberIds,
+    visibilityValue: doc.fields?.visibility?.stringValue,
+    memberIdsCount: doc.fields?.memberIds?.arrayValue?.values?.length,
+  });
 
   const visibility =
     (doc.fields?.visibility?.stringValue as ProjectVisibility) || "public";
@@ -111,6 +132,12 @@ async function fetchProjectFromFirestore(
     doc.fields?.memberIds?.arrayValue?.values?.map(
       (value: { stringValue: string }) => value.stringValue,
     ) || [];
+
+  console.info("[VISIBILITY] Parsed project data:", {
+    projectId,
+    visibility,
+    memberIds,
+  });
 
   return { visibility, memberIds };
 }

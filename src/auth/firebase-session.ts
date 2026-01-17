@@ -57,9 +57,16 @@ export async function validateFirebaseSessionCookie(
   cache?: KVNamespace,
 ): Promise<SessionValidationResult> {
   try {
+    console.info(
+      "[AUTH] Validating session cookie, length:",
+      sessionCookie.length,
+    );
+
     const header = jose.decodeProtectedHeader(sessionCookie);
+    console.info("[AUTH] JWT header:", { alg: header.alg, kid: header.kid });
 
     if (!header.kid) {
+      console.error("[AUTH] Missing key ID in JWT header");
       return { valid: false, error: "Missing key ID in JWT header" };
     }
 
@@ -67,22 +74,42 @@ export async function validateFirebaseSessionCookie(
     const publicKeyPem = publicKeys[header.kid];
 
     if (!publicKeyPem) {
+      console.error("[AUTH] Unknown key ID:", header.kid);
+      console.info("[AUTH] Available key IDs:", Object.keys(publicKeys));
       return { valid: false, error: "Unknown key ID" };
     }
 
+    console.info("[AUTH] Found matching public key for kid:", header.kid);
+
     const publicKey = await jose.importX509(publicKeyPem, "RS256");
 
+    const expectedIssuer = `https://session.firebase.google.com/${firebaseProjectId}`;
+    console.info("[AUTH] Expected issuer:", expectedIssuer);
+    console.info("[AUTH] Expected audience:", firebaseProjectId);
+
     const { payload } = await jose.jwtVerify(sessionCookie, publicKey, {
-      issuer: `https://session.firebase.google.com/${firebaseProjectId}`,
+      issuer: expectedIssuer,
       audience: firebaseProjectId,
+    });
+
+    console.info("[AUTH] JWT payload:", {
+      sub: payload.sub,
+      email: payload.email,
+      iss: payload.iss,
+      aud: payload.aud,
+      exp: payload.exp,
+      iat: payload.iat,
     });
 
     const uid = payload.sub;
     const email = payload.email as string | undefined;
 
     if (!uid) {
+      console.error("[AUTH] Missing user ID (sub) in token payload");
       return { valid: false, error: "Missing user ID in token" };
     }
+
+    console.info("[AUTH] Session cookie validated successfully for uid:", uid);
 
     return {
       valid: true,
@@ -92,6 +119,9 @@ export async function validateFirebaseSessionCookie(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[AUTH] Session validation failed:", message);
+    if (error instanceof Error && error.stack) {
+      console.error("[AUTH] Stack trace:", error.stack);
+    }
     return { valid: false, error: message };
   }
 }
