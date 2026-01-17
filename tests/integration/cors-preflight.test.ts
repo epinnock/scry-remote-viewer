@@ -13,7 +13,13 @@ describe('CORS preflight integration', () => {
           throw new Error('bucket.get should not be called during OPTIONS');
         })
       },
-      CDN_CACHE: {}
+      CDN_CACHE: {
+        get: vi.fn().mockResolvedValue({
+          visibility: 'public',
+          memberIds: [],
+          cachedAt: Date.now(),
+        })
+      }
     };
 
     const req = new Request('https://view.scrymore.com/test-project/v1.0.0/coverage-report.json', {
@@ -37,7 +43,13 @@ describe('CORS preflight integration', () => {
     const env: any = {
       NODE_ENV: 'production',
       UPLOAD_BUCKET: { get: vi.fn(async () => null) },
-      CDN_CACHE: {}
+      CDN_CACHE: {
+        get: vi.fn().mockResolvedValue({
+          visibility: 'public',
+          memberIds: [],
+          cachedAt: Date.now(),
+        })
+      }
     };
 
     const req = new Request('https://view.scrymore.com/test-project/v1.0.0/coverage-report.json', {

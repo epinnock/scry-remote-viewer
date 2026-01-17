@@ -1,0 +1,127 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { Hono } from 'hono';
+import { privateProjectAuth } from '@/middleware/auth';
+
+vi.mock('@/services/visibility', () => ({
+  getProjectVisibility: vi.fn(),
+  isProjectMember: vi.fn(),
+}));
+
+vi.mock('@/auth/firebase-session', () => ({
+  validateFirebaseSessionCookie: vi.fn(),
+  parseCookies: vi.fn(),
+}));
+
+import { getProjectVisibility, isProjectMember } from '@/services/visibility';
+import { validateFirebaseSessionCookie, parseCookies } from '@/auth/firebase-session';
+
+describe('privateProjectAuth middleware', () => {
+  let app: Hono;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    app = new Hono();
+    app.use('/*', privateProjectAuth);
+    app.get('/*', (c) => c.text('OK'));
+  });
+
+  const mockEnv = {
+    FIREBASE_PROJECT_ID: 'test-project',
+    CDN_CACHE: { get: vi.fn(), put: vi.fn() },
+    UPLOAD_BUCKET: { get: vi.fn() },
+  };
+
+  it('allows access to public projects without auth', async () => {
+    (getProjectVisibility as any).mockResolvedValue({
+      visibility: 'public',
+      memberIds: [],
+    });
+
+    const req = new Request('https://view.scrymore.com/public-project/v1/index.html');
+    const res = await app.fetch(req, mockEnv as any);
+
+    expect(res.status).toBe(200);
+  });
+
+  it('returns 401 for private project without session cookie', async () => {
+    (getProjectVisibility as any).mockResolvedValue({
+      visibility: 'private',
+      memberIds: ['user-123'],
+    });
+    (parseCookies as any).mockReturnValue({});
+
+    const req = new Request('https://view.scrymore.com/private-project/v1/index.html');
+    const res = await app.fetch(req, mockEnv as any);
+
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 401 for invalid session cookie', async () => {
+    (getProjectVisibility as any).mockResolvedValue({
+      visibility: 'private',
+      memberIds: ['user-123'],
+    });
+    (parseCookies as any).mockReturnValue({ __session: 'invalid-token' });
+    (validateFirebaseSessionCookie as any).mockResolvedValue({
+      valid: false,
+      error: 'Invalid token',
+    });
+
+    const req = new Request('https://view.scrymore.com/private-project/v1/index.html', {
+      headers: { Cookie: '__session=invalid-token' },
+    });
+    const res = await app.fetch(req, mockEnv as any);
+
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 when user is not a project member', async () => {
+    (getProjectVisibility as any).mockResolvedValue({
+      visibility: 'private',
+      memberIds: ['other-user'],
+    });
+    (parseCookies as any).mockReturnValue({ __session: 'valid-token' });
+    (validateFirebaseSessionCookie as any).mockResolvedValue({
+      valid: true,
+      uid: 'user-123',
+    });
+    (isProjectMember as any).mockReturnValue(false);
+
+    const req = new Request('https://view.scrymore.com/private-project/v1/index.html', {
+      headers: { Cookie: '__session=valid-token' },
+    });
+    const res = await app.fetch(req, mockEnv as any);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('allows access when user is a project member', async () => {
+    (getProjectVisibility as any).mockResolvedValue({
+      visibility: 'private',
+      memberIds: ['user-123'],
+    });
+    (parseCookies as any).mockReturnValue({ __session: 'valid-token' });
+    (validateFirebaseSessionCookie as any).mockResolvedValue({
+      valid: true,
+      uid: 'user-123',
+    });
+    (isProjectMember as any).mockReturnValue(true);
+
+    const req = new Request('https://view.scrymore.com/private-project/v1/index.html', {
+      headers: { Cookie: '__session=valid-token' },
+    });
+    const res = await app.fetch(req, mockEnv as any);
+
+    expect(res.status).toBe(200);
+  });
+
+  it('passes through when project not found', async () => {
+    (getProjectVisibility as any).mockResolvedValue(null);
+
+    const req = new Request('https://view.scrymore.com/nonexistent/v1/index.html');
+    const res = await app.fetch(req, mockEnv as any);
+
+    expect(res.status).toBe(200);
+  });
+});
