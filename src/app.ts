@@ -94,6 +94,10 @@ export function createApp() {
   // through auth normally.
   app.use("*", async (c, next) => {
     const url = new URL(c.req.url);
+    if (url.pathname.startsWith("/health")) {
+      return next();
+    }
+
     const pathInfo = parsePathForUUID(url.pathname);
 
     if (!pathInfo || !pathInfo.isValid || !pathInfo.resolution) {
@@ -101,16 +105,16 @@ export function createApp() {
       if (referer) {
         const project = extractProjectFromReferer(referer);
         if (project) {
-          const originalPath = url.pathname.startsWith("/")
-            ? url.pathname.slice(1)
-            : url.pathname;
+          const originalPath = url.pathname.slice(1);
           const redirectUrl = project.versionId
             ? `/${project.projectId}/${project.versionId}/${originalPath}`
             : `/${project.projectId}/${originalPath}`;
+          c.header("Vary", "Referer");
           return c.redirect(redirectUrl, 302);
         }
       }
-      return c.text("Invalid format. Expected: /{projectId}/path", 400);
+      // No valid Referer — fall through to downstream handlers (404, etc.)
+      return next();
     }
 
     return next();

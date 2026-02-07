@@ -90,9 +90,7 @@ export function extractProjectFromReferer(
 ): { projectId: string; versionId: string } | null {
   try {
     const url = new URL(refererUrl);
-    const cleanPath = url.pathname.startsWith("/")
-      ? url.pathname.slice(1)
-      : url.pathname;
+    const cleanPath = url.pathname.slice(1);
     const segments = cleanPath.split("/").filter((s) => s);
 
     if (segments.length === 0) {
