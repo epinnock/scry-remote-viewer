@@ -4,6 +4,7 @@ import { compress } from "hono/compress";
 import { zipStaticRoutes } from "./routes/zip-static";
 import { healthRoutes } from "./routes/health";
 import { privateProjectAuth } from "./middleware/auth";
+import { parsePathForUUID, extractProjectFromReferer } from "./utils/subdomain";
 import type { Env } from "./types/env";
 import {
   corsHeaders,
@@ -85,6 +86,35 @@ export function createApp() {
 
   // Health check routes (no auth required)
   app.route("/health", healthRoutes);
+
+  // Redirect root-level asset requests before auth can reject them.
+  // Components with absolute paths (e.g., src="/placeholder.svg") hit the
+  // domain root.  We use the Referer header to redirect to the correct
+  // /{projectId}/{versionId}/{asset} path so the subsequent request goes
+  // through auth normally.
+  app.use("*", async (c, next) => {
+    const url = new URL(c.req.url);
+    const pathInfo = parsePathForUUID(url.pathname);
+
+    if (!pathInfo || !pathInfo.isValid || !pathInfo.resolution) {
+      const referer = c.req.header("Referer");
+      if (referer) {
+        const project = extractProjectFromReferer(referer);
+        if (project) {
+          const originalPath = url.pathname.startsWith("/")
+            ? url.pathname.slice(1)
+            : url.pathname;
+          const redirectUrl = project.versionId
+            ? `/${project.projectId}/${project.versionId}/${originalPath}`
+            : `/${project.projectId}/${originalPath}`;
+          return c.redirect(redirectUrl, 302);
+        }
+      }
+      return c.text("Invalid format. Expected: /{projectId}/path", 400);
+    }
+
+    return next();
+  });
 
   // Auth middleware for viewer routes only (exclude /health)
   app.use("/:projectId/*", privateProjectAuth);
