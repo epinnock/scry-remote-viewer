@@ -65,16 +65,18 @@ describe('Referer-based redirect for root-level asset requests', () => {
     expect(res.headers.get('Location')).toBe('/TjYmKAiAQuIdYFlBnVOa/placeholder.svg');
   });
 
-  it('does not return 400 when no Referer header is present (falls through)', async () => {
+  it('falls through to downstream handlers when no Referer is present', async () => {
     const app = createApp();
     const env = createMockEnv();
 
     const req = new Request('https://view.scrymore.com/placeholder.svg');
     const res = await app.fetch(req, env as any);
 
-    // Falls through to downstream handlers — NOT a hard 400 from the middleware
+    // The redirect middleware should NOT intercept — it falls through to auth/zip-static.
     expect(res.status).not.toBe(302);
-    expect(res.status).not.toBe(500);
+    // Auth middleware treats "placeholder.svg" as a projectId and returns 401
+    // (Firestore lookup fails, defaults to private).
+    expect(res.status).toBe(401);
   });
 
   it('does not return 302 when Referer has invalid projectId', async () => {
@@ -114,8 +116,6 @@ describe('Referer-based redirect for root-level asset requests', () => {
     const req = new Request('https://view.scrymore.com/health');
     const res = await app.fetch(req, env as any);
 
-    // /health should pass through the redirect middleware and reach the health handler
-    expect(res.status).not.toBe(400);
-    expect(res.status).not.toBe(302);
+    expect(res.status).toBe(200);
   });
 });
