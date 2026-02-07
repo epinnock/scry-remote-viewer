@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parsePathForUUID, isValidUUID } from '../../src/utils/subdomain';
+import { parsePathForUUID, isValidUUID, extractProjectFromReferer } from '../../src/utils/subdomain';
 import type { CompoundUUID } from '../../src/utils/path-resolver';
 
 describe('subdomain path parsing with flexible versions', () => {
@@ -161,5 +161,57 @@ describe('subdomain path parsing with flexible versions', () => {
       const result = parsePathForUUID('/');
       expect(result).toBeNull();
     });
+  });
+});
+
+describe('extractProjectFromReferer', () => {
+  it('extracts projectId and versionId from a valid Referer', () => {
+    const result = extractProjectFromReferer('https://view.scrymore.com/TjYmKAiAQuIdYFlBnVOa/main/iframe.html');
+    expect(result).toEqual({ projectId: 'TjYmKAiAQuIdYFlBnVOa', versionId: 'main' });
+  });
+
+  it('extracts projectId with semantic version', () => {
+    const result = extractProjectFromReferer('https://view.scrymore.com/my-project/v1.0.0/iframe.html');
+    expect(result).toEqual({ projectId: 'my-project', versionId: 'v1.0.0' });
+  });
+
+  it('extracts projectId with PR version', () => {
+    const result = extractProjectFromReferer('https://view.scrymore.com/my-project/pr-123/iframe.html');
+    expect(result).toEqual({ projectId: 'my-project', versionId: 'pr-123' });
+  });
+
+  it('extracts projectId without version when second segment is not a version', () => {
+    const result = extractProjectFromReferer('https://view.scrymore.com/TjYmKAiAQuIdYFlBnVOa/iframe.html');
+    expect(result).toEqual({ projectId: 'TjYmKAiAQuIdYFlBnVOa', versionId: '' });
+  });
+
+  it('returns null for Referer with no path segments', () => {
+    const result = extractProjectFromReferer('https://view.scrymore.com/');
+    expect(result).toBeNull();
+  });
+
+  it('returns null for Referer with invalid projectId', () => {
+    const result = extractProjectFromReferer('https://view.scrymore.com/ab/main/iframe.html');
+    expect(result).toBeNull();
+  });
+
+  it('returns null for invalid URL', () => {
+    const result = extractProjectFromReferer('not-a-url');
+    expect(result).toBeNull();
+  });
+
+  it('returns null for empty string', () => {
+    const result = extractProjectFromReferer('');
+    expect(result).toBeNull();
+  });
+
+  it('works with different domains (does not validate domain)', () => {
+    const result = extractProjectFromReferer('https://other-domain.com/my-project/main/iframe.html');
+    expect(result).toEqual({ projectId: 'my-project', versionId: 'main' });
+  });
+
+  it('handles Referer with query parameters', () => {
+    const result = extractProjectFromReferer('https://view.scrymore.com/my-project/main/iframe.html?id=button--primary');
+    expect(result).toEqual({ projectId: 'my-project', versionId: 'main' });
   });
 });
