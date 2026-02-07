@@ -1,4 +1,4 @@
-import { resolveUUID, type UUIDResolution } from './path-resolver';
+import { resolveUUID, type UUIDResolution } from "./path-resolver";
 
 export interface SubdomainInfo {
   uuid: string;
@@ -10,7 +10,7 @@ export interface SubdomainInfo {
  * Expected format: view-{uuid}.domain.com
  */
 export function parseSubdomain(hostname: string): SubdomainInfo | null {
-  const parts = hostname.split('.');
+  const parts = hostname.split(".");
   if (parts.length < 2) {
     return null;
   }
@@ -43,7 +43,7 @@ export function isValidUUID(uuid: string): boolean {
 
 /**
  * Detect if a path segment is a version identifier
- * 
+ *
  * Supports multiple version formats:
  * - Semantic: v1.0.0, v2.1.5
  * - Extended: v0.0.0.1, v1.2.3.4
@@ -55,15 +55,16 @@ export function isValidUUID(uuid: string): boolean {
 function isVersionSegment(segment: string): boolean {
   // Minimum length check
   if (segment.length < 2) return false;
-  
+
   // Match common version patterns:
   // 1. Starts with 'v' followed by version number (v1.0.0, v0.0.0.1)
   // 2. PR format (pr-001, pr-123)
   // 3. Dev format (dev-123, dev-snapshot-456)
   // 4. Common identifiers (beta, alpha, canary, rc)
   // 5. Environment names (staging, latest, main, production)
-  const commonPatterns = /^(v[\d.-]+|pr-\d+|dev-[\w-]+|beta[\w-]*|alpha[\w-]*|canary[\w-]*|rc-?\d*|staging|latest|main|production)$/i;
-  
+  const commonPatterns =
+    /^(v[\d.-]+|pr-\d+|dev-[\w-]+|beta[\w-]*|alpha[\w-]*|canary[\w-]*|rc-?\d*|staging|latest|main|production)$/i;
+
   return commonPatterns.test(segment);
 }
 
@@ -73,61 +74,98 @@ function isVersionSegment(segment: string): boolean {
  * Or: /{projectId}/path/to/file.html (no version)
  */
 export interface PathInfo {
-  uuid: string;  // Kept for compatibility, will be projectId-versionId
+  uuid: string; // Kept for compatibility, will be projectId-versionId
   filePath: string;
   isValid: boolean;
   resolution?: UUIDResolution;
 }
 
+/**
+ * Extract projectId and versionId from a Referer URL.
+ * Used to redirect root-level asset requests (e.g., /placeholder.svg)
+ * back to the correct project/version path.
+ */
+export function extractProjectFromReferer(
+  refererUrl: string,
+): { projectId: string; versionId: string } | null {
+  try {
+    const url = new URL(refererUrl);
+    const cleanPath = url.pathname.startsWith("/")
+      ? url.pathname.slice(1)
+      : url.pathname;
+    const segments = cleanPath.split("/").filter((s) => s);
+
+    if (segments.length === 0) {
+      return null;
+    }
+
+    const projectId = segments[0];
+    if (!isValidUUID(projectId)) {
+      return null;
+    }
+
+    let versionId = "";
+    if (segments.length >= 2 && isVersionSegment(segments[1])) {
+      versionId = segments[1];
+    }
+
+    return { projectId, versionId };
+  } catch {
+    return null;
+  }
+}
+
 export function parsePathForUUID(pathname: string): PathInfo | null {
   // Remove leading slash
-  const cleanPath = pathname.startsWith('/') ? pathname.slice(1) : pathname;
-  
+  const cleanPath = pathname.startsWith("/") ? pathname.slice(1) : pathname;
+
   // Split path into segments
-  const segments = cleanPath.split('/').filter(s => s); // Remove empty segments
-  
+  const segments = cleanPath.split("/").filter((s) => s); // Remove empty segments
+
   // Need at least projectId
   if (segments.length === 0) {
     return null;
   }
-  
+
   const projectId = segments[0];
-  
+
   // Validate projectId format (alphanumeric + hyphens, min 3 chars)
   if (!isValidUUID(projectId)) {
-    return { uuid: projectId, filePath: '', isValid: false };
+    return { uuid: projectId, filePath: "", isValid: false };
   }
-  
-  let versionId = '';
+
+  let versionId = "";
   let filePathStartIndex = 1;
-  
+
   // Check if second segment is a version using flexible detection
   if (segments.length >= 2 && isVersionSegment(segments[1])) {
     versionId = segments[1];
     filePathStartIndex = 2;
   }
-  
+
   // Remaining segments form the file path
-  const filePath = segments.slice(filePathStartIndex).join('/');
-  
+  const filePath = segments.slice(filePathStartIndex).join("/");
+
   // Create resolution
   const zipKey = versionId
     ? `${projectId}/${versionId}/storybook.zip`
     : `${projectId}/storybook.zip`;
-  
+
   const resolution: UUIDResolution = {
-    type: 'compound',
-    uuid: versionId ? `${projectId}-${versionId.replace(/\./g, '-')}` : projectId,
+    type: "compound",
+    uuid: versionId
+      ? `${projectId}-${versionId.replace(/\./g, "-")}`
+      : projectId,
     project: projectId,
     version: versionId,
     zipKey,
-    bucket: 'UPLOAD_BUCKET'
+    bucket: "UPLOAD_BUCKET",
   };
-  
+
   return {
     uuid: resolution.uuid,
-    filePath: filePath || 'index.html', // Default to index.html if no file path
+    filePath: filePath || "index.html", // Default to index.html if no file path
     isValid: true,
-    resolution
+    resolution,
   };
 }
