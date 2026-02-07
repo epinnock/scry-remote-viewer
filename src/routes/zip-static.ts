@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { parsePathForUUID, extractProjectFromReferer } from "@/utils/subdomain";
+import { parsePathForUUID } from "@/utils/subdomain";
 import { getMimeType } from "@/utils/mime-types";
 import { getCentralDirectory } from "@/services/zip/central-directory";
 import { extractFile } from "@/services/zip/extractor";
@@ -36,21 +36,6 @@ zipStaticRoutes.get("/*", async (c) => {
   console.log("[DEBUG] Parsed pathInfo:", JSON.stringify(pathInfo, null, 2));
 
   if (!pathInfo || !pathInfo.isValid || !pathInfo.resolution) {
-    // Attempt Referer-based redirect for root-level asset requests
-    // (e.g., /placeholder.svg requested by a component with an absolute path)
-    const referer = c.req.header("Referer");
-    if (referer) {
-      const project = extractProjectFromReferer(referer);
-      if (project) {
-        const originalPath = url.pathname.startsWith("/")
-          ? url.pathname.slice(1)
-          : url.pathname;
-        const redirectUrl = project.versionId
-          ? `/${project.projectId}/${project.versionId}/${originalPath}`
-          : `/${project.projectId}/${originalPath}`;
-        return c.redirect(redirectUrl, 302);
-      }
-    }
     console.error("[ERROR] Invalid path format:", {
       pathInfo,
       pathname: url.pathname,

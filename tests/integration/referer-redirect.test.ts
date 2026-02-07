@@ -35,6 +35,21 @@ describe('Referer-based redirect for root-level asset requests', () => {
     expect(res.headers.get('Location')).toBe('/TjYmKAiAQuIdYFlBnVOa/main/placeholder.svg');
   });
 
+  it('sets Vary: Referer on redirect responses', async () => {
+    const app = createApp();
+    const env = createMockEnv();
+
+    const req = new Request('https://view.scrymore.com/placeholder.svg', {
+      headers: {
+        Referer: 'https://view.scrymore.com/TjYmKAiAQuIdYFlBnVOa/main/iframe.html',
+      },
+    });
+    const res = await app.fetch(req, env as any);
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Vary')).toBe('Referer');
+  });
+
   it('returns 302 redirect for project without version', async () => {
     const app = createApp();
     const env = createMockEnv();
@@ -50,17 +65,19 @@ describe('Referer-based redirect for root-level asset requests', () => {
     expect(res.headers.get('Location')).toBe('/TjYmKAiAQuIdYFlBnVOa/placeholder.svg');
   });
 
-  it('returns 400 when no Referer header is present', async () => {
+  it('does not return 400 when no Referer header is present (falls through)', async () => {
     const app = createApp();
     const env = createMockEnv();
 
     const req = new Request('https://view.scrymore.com/placeholder.svg');
     const res = await app.fetch(req, env as any);
 
-    expect(res.status).toBe(400);
+    // Falls through to downstream handlers — NOT a hard 400 from the middleware
+    expect(res.status).not.toBe(302);
+    expect(res.status).not.toBe(500);
   });
 
-  it('returns 400 when Referer has invalid projectId', async () => {
+  it('does not return 302 when Referer has invalid projectId', async () => {
     const app = createApp();
     const env = createMockEnv();
 
@@ -71,7 +88,7 @@ describe('Referer-based redirect for root-level asset requests', () => {
     });
     const res = await app.fetch(req, env as any);
 
-    expect(res.status).toBe(400);
+    expect(res.status).not.toBe(302);
   });
 
   it('redirects root-level assets with file extensions in name', async () => {
@@ -88,5 +105,17 @@ describe('Referer-based redirect for root-level asset requests', () => {
 
     expect(res.status).toBe(302);
     expect(res.headers.get('Location')).toBe('/myProject123/v1.0.0/logo.png');
+  });
+
+  it('does not break the /health endpoint', async () => {
+    const app = createApp();
+    const env = createMockEnv();
+
+    const req = new Request('https://view.scrymore.com/health');
+    const res = await app.fetch(req, env as any);
+
+    // /health should pass through the redirect middleware and reach the health handler
+    expect(res.status).not.toBe(400);
+    expect(res.status).not.toBe(302);
   });
 });
