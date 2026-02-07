@@ -87,34 +87,45 @@ export function createApp() {
   // Health check routes (no auth required)
   app.route("/health", healthRoutes);
 
-  // Redirect root-level asset requests before auth can reject them.
-  // Components with absolute paths (e.g., src="/placeholder.svg") hit the
-  // domain root.  We use the Referer header to redirect to the correct
-  // /{projectId}/{versionId}/{asset} path so the subsequent request goes
-  // through auth normally.
+  // Redirect mis-resolved asset requests before auth can reject them.
+  // Components with absolute paths (e.g., src="/pets/hero.png" or src="/placeholder.svg")
+  // hit the wrong path on the CDN. We use the Referer header to detect
+  // these and redirect to /{projectId}/{versionId}/{asset} so the
+  // subsequent request goes through auth normally.
+  //
+  // Two cases:
+  // 1. Path is invalid (e.g., /placeholder.svg — dot fails UUID check)
+  // 2. Path resolves to a different project than the Referer
+  //    (e.g., /pets/hero.png resolves to project "pets" but Referer
+  //    is from project "TjYmKAiAQuIdYFlBnVOa")
   app.use("*", async (c, next) => {
     const url = new URL(c.req.url);
     if (url.pathname.startsWith("/health")) {
       return next();
     }
 
-    const pathInfo = parsePathForUUID(url.pathname);
-
-    if (!pathInfo || !pathInfo.isValid || !pathInfo.resolution) {
-      const referer = c.req.header("Referer");
-      if (referer) {
-        const project = extractProjectFromReferer(referer);
-        if (project) {
-          const originalPath = url.pathname.slice(1);
-          const redirectUrl = project.versionId
-            ? `/${project.projectId}/${project.versionId}/${originalPath}`
-            : `/${project.projectId}/${originalPath}`;
-          c.header("Vary", "Referer");
-          return c.redirect(redirectUrl, 302);
-        }
-      }
-      // No valid Referer — fall through to downstream handlers (404, etc.)
+    const referer = c.req.header("Referer");
+    if (!referer) {
       return next();
+    }
+
+    const refProject = extractProjectFromReferer(referer);
+    if (!refProject) {
+      return next();
+    }
+
+    const pathInfo = parsePathForUUID(url.pathname);
+    const pathInvalid = !pathInfo || !pathInfo.isValid || !pathInfo.resolution;
+    const projectMismatch =
+      !pathInvalid && refProject.projectId !== pathInfo!.resolution!.project;
+
+    if (pathInvalid || projectMismatch) {
+      const originalPath = url.pathname.slice(1);
+      const redirectUrl = refProject.versionId
+        ? `/${refProject.projectId}/${refProject.versionId}/${originalPath}${url.search}`
+        : `/${refProject.projectId}/${originalPath}${url.search}`;
+      c.header("Vary", "Referer");
+      return c.redirect(redirectUrl, 302);
     }
 
     return next();

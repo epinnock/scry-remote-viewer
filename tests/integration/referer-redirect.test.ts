@@ -109,6 +109,37 @@ describe('Referer-based redirect for root-level asset requests', () => {
     expect(res.headers.get('Location')).toBe('/myProject123/v1.0.0/logo.png');
   });
 
+  it('redirects multi-segment paths when Referer project differs', async () => {
+    const app = createApp();
+    const env = createMockEnv();
+
+    // /pets/hero-pets.png resolves to project "pets" but Referer is from "TjYmKAiAQuIdYFlBnVOa"
+    const req = new Request('https://view.scrymore.com/pets/hero-pets.png', {
+      headers: {
+        Referer: 'https://view.scrymore.com/TjYmKAiAQuIdYFlBnVOa/main/iframe.html',
+      },
+    });
+    const res = await app.fetch(req, env as any);
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/TjYmKAiAQuIdYFlBnVOa/main/pets/hero-pets.png');
+  });
+
+  it('preserves query string in redirect', async () => {
+    const app = createApp();
+    const env = createMockEnv();
+
+    const req = new Request('https://view.scrymore.com/pets/hero-pets.png?w=640&q=75', {
+      headers: {
+        Referer: 'https://view.scrymore.com/TjYmKAiAQuIdYFlBnVOa/main/iframe.html',
+      },
+    });
+    const res = await app.fetch(req, env as any);
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toBe('/TjYmKAiAQuIdYFlBnVOa/main/pets/hero-pets.png?w=640&q=75');
+  });
+
   it('does not break the /health endpoint', async () => {
     const app = createApp();
     const env = createMockEnv();
