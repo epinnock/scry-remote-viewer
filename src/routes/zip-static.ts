@@ -4,6 +4,7 @@ import { getMimeType } from "@/utils/mime-types";
 import { getCentralDirectory } from "@/services/zip/central-directory";
 import { extractFile } from "@/services/zip/extractor";
 import { normalizePath, isPathSafe, getCacheControl } from "@/utils/zip-utils";
+import { resolveVersion } from "@/utils/version-resolver";
 import type { Env } from "@/types/env";
 
 export const zipStaticRoutes = new Hono<{ Bindings: Env }>();
@@ -47,6 +48,20 @@ zipStaticRoutes.get("/*", async (c) => {
   console.log("[DEBUG] UUID:", uuid);
   console.log("[DEBUG] File path:", filePath);
   console.log("[DEBUG] Resolution:", JSON.stringify(resolution, null, 2));
+
+  // Resolve "latest" to the actual most recent version
+  if (resolution.type === "compound" && resolution.version === "latest") {
+    const resolved = await resolveVersion(resolution.project, "latest", c.env);
+    if (!resolved) {
+      return c.json({ error: "No builds found for this project" }, 404);
+    }
+    resolution.version = resolved.resolvedVersion;
+    resolution.zipKey = `${resolution.project}/${resolved.resolvedVersion}/storybook.zip`;
+    console.log(
+      "[DEBUG] Resolved latest to version:",
+      resolved.resolvedVersion,
+    );
+  }
 
   // NEW: Select bucket based on resolution type
   const storage =
